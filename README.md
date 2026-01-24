@@ -1,73 +1,54 @@
 # ChatBar - World of Warcraft Addon
 
-A customizable chat channel switcher addon for World of Warcraft that displays quick-access buttons above your active chat frame.
+A lightweight, customizable chat channel switcher addon for World of Warcraft that displays quick-access buttons above your active chat frame.
 
 ## Features
 
 ### Dynamic Channel Detection
 
-- **Automatic availability** - Buttons appear only for channels you currently have access to
-- **Guild chat** - Shows when you're in a guild
-- **Party chat** - Shows when you're in a party (but not raid)
-- **Raid chat** - Shows when you're in a raid group
-- **Battleground chat** - Shows when you're in an active battleground
-- **Instance chat** - Shows when in dungeon/scenario groups
+- **Automatic availability** - Buttons appear only for channels you currently have access to (Guild chat, Party chat, Raid chat, Battleground chat, Instance chat)
 - **Numbered channels** - Auto-detects General, Trade, LocalDefense, and custom channels
 - **Always available** - Say, Yell, Emote, and Whisper buttons (configurable)
-
-### Active Chat Frame Tracking
-
-- Buttons automatically follow whichever chat window has focus
-- Works with all chat frames (ChatFrame1-10)
-- Repositions when you switch between chat windows
 
 ### Customizable Appearance
 
 #### Button Themes (3 Presets)
 
-- **Classic** - Traditional WoW button style (28px, silver buttons)
-- **Modern** - Clean contemporary look (32px, frame-style buttons)
-- **Minimal** - Compact colored backgrounds (24px, no textures)
+- **Classic** - Traditional WoW button style (24px, silver-gray buttons with borders)
+- **Modern** - Clean contemporary look (24px, dark frame-style buttons with subtle borders)
+- **Minimal** - Compact transparent design (24px, no borders, blend-in look)
 
 #### Bar Themes (3 Presets)
 
-- **Classic** - Dialog box style with tooltip borders
-- **Modern** - Sleek dark design with subtle borders
-- **Minimal** - Transparent background, no borders
+- **Classic** - Dialog box style with tooltip borders (gold/silver theme)
+- **Modern** - Sleek dark design with subtle blue borders
+- **Minimal** - Transparent background, no visible borders
+
+#### Typography
+
+- **Adjustable Font Size** - Slider to customize button text size (8-24px, default: 12px)
+- **UTF-8 Support** - Full support for Cyrillic, Asian, and other multi-byte character sets
+- **Localized Labels** - Automatically uses your WoW client's language for channel names
+- **Smart Text Display** - Shows first letter of channel name (S=Say, Y=Yell) or channel number
 
 #### Layout Options
 
 - **Horizontal** - Buttons arranged in a row (default)
 - **Vertical** - Buttons stacked in a column
 
-### Channel Configuration
-
-- **Enable/Disable** - Toggle individual channels on/off
-- **Numbered channels** - Choose to show/hide General, Trade, etc.
-- **Channel filtering** - Configure which specific numbered channels to display
-
 ### Profile System
 
 - **Account-wide** - Share settings across all characters (default)
 - **Per-character** - Unique settings for each character
-- Easily switch between modes in settings
 
 ### Additional Features
 
-- **Draggable bar** - Reposition manually by dragging
-- **Toggle visibility** - Keybind or command to show/hide entire bar
-- **Color-coded buttons** - Uses WoW's chat type colors for easy identification
+- **Draggable Bar** - Click and drag to reposition manually
+- **Lock Position** - Prevent accidental movement when locked
+- **Toggle Visibility** - Keybind or command to show/hide entire bar
+- **Color-coded Buttons** - Uses WoW's native chat type colors for easy identification
 - **Tooltips** - Hover over buttons for channel information
-- **Slash commands** - Quick access to all features
-
-## Installation
-
-1. Download or clone this repository
-2. Copy the `ChatBar` folder to your WoW AddOns directory:
-   - **Windows**: `World of Warcraft\_retail_\Interface\AddOns\`
-   - **Mac**: `World of Warcraft/_retail_/Interface/AddOns/`
-3. Restart WoW or reload UI (`/reload`)
-4. Enable "ChatBar" in the AddOns list
+- **Slash Commands** - Quick access to all features via console
 
 ## Usage
 
@@ -80,159 +61,139 @@ A customizable chat channel switcher addon for World of Warcraft that displays q
 - `/chatbar reset` - Reset all settings to defaults
 - `/chatbar help` - Display help information
 
-### Keybinds
-
-Set a keybind for "Toggle ChatBar" in:
-
-- ESC → Keybinds → AddOns → ChatBar
-
 ### Settings Panel
 
 Access via:
 
-- `/chatbar` command
+- `/chatbar` or `/cb` command
 - Interface → AddOns → ChatBar
+- Game Menu (ESC) → Interface → AddOns → ChatBar
 
-#### Available Settings
+### Localization
 
-##### Profile Mode
-
-- Account-wide (shared across characters)
-- Per-character (unique per character)
-
-##### Button Theme
-
-- Classic, Modern, or Minimal
-
-##### Bar Theme
-
-- Classic, Modern, or Minimal
-
-##### Orientation
-
-- Horizontal or Vertical
-
-##### Enabled Channels
-
-- Checkboxes for each channel type
-- Toggle for numbered channels
-
-## How It Works
-
-### Channel Switching
-
-1. Click any button to switch to that chat channel
-2. The chat input box updates to the selected channel
-3. Input box automatically receives focus
-4. Start typing immediately
-
-### Channel Availability
-
-The addon monitors game events to show/hide buttons:
-
-- **Guild joined/left** - Guild/Officer buttons appear/disappear
-- **Group formed/disbanded** - Party/Raid buttons update
-- **Battleground entered/exited** - BG button updates
-- **Channels joined/left** - Numbered channel buttons update
-
-### Theme System
-
-- **Button themes** control button appearance (size, textures, colors)
-- **Bar themes** control container appearance (background, borders, padding)
-- Themes can be mixed independently
-- Uses WoW's built-in ChatTypeInfo colors for authentic look
-
-## Technical Details
-
-### Compatibility
-
-- **Interface Version**: 120000 (Patch 12.0.0+)
-- **Game Version**: World of Warcraft Retail - Midnight expansion (Patch 12.0.0.65560+)
-- **API Compatibility**: Fully compatible with patch 12.0.0 and 12.0.1 API changes
-  - Uses modern BackdropTemplate mixin system
-  - All chat APIs used are current and not deprecated
-  - Does not use any removed or deprecated functions
-  - Not affected by secret values system (non-combat addon)
+- **Supported Languages**: English (enUS), German (deDE), Spanish (esES), French (frFR), Russian (ruRU)
+- **UTF-8 Support**: Full multi-byte character support for Cyrillic, Asian, and other multi-byte character sets
+- **Auto-detection**: Uses your WoW client's language automatically
+- **Fallback System**: Defaults to English if translation missing
+- **Smart Text Extraction**: Properly handles first-character extraction for all languages
 
 ### SavedVariables
 
-- `ChatBarDB` - Account-wide settings
-- `ChatBarCharDB` - Per-character settings
+- `ChatBarDB` - Account-wide settings (shared across all characters)
+- `ChatBarCharDB` - Per-character settings (unique to each character)
 
 ### Events Monitored
 
-- `PLAYER_ENTERING_WORLD` - Initial setup
-- `GROUP_ROSTER_UPDATE` - Party/raid changes
-- `PLAYER_GUILD_UPDATE` - Guild status changes
+- `PLAYER_ENTERING_WORLD` - Initial setup and world transitions
+- `GROUP_ROSTER_UPDATE` - Party/raid composition changes
+- `PLAYER_GUILD_UPDATE` - Guild membership status changes
 - `GUILD_ROSTER_UPDATE` - Guild roster updates
-- `CHANNEL_UI_UPDATE` - Channel list changes
+- `CHANNEL_UI_UPDATE` - Channel list changes (numbered channels)
 - `ZONE_CHANGED_NEW_AREA` - Zone changes (battlegrounds)
 - `UPDATE_CHAT_WINDOWS` - Chat frame repositioning
 
 ### API Usage
 
-- `IsInGuild()` - Guild membership detection
-- `IsInGroup()` - Party detection
-- `IsInRaid()` - Raid detection
-- `C_PvP.IsActiveBattlefield()` - Battleground detection
-- `GetChannelList()` - Numbered channel detection
-- `ChatEdit_UpdateHeader()` - Chat channel switching
+- **Chat Detection**: `IsInGuild()`, `IsInGroup()`, `IsInRaid()`, `C_PvP.IsActiveBattlefield()`
+- **Channel Management**: `GetChannelList()`, `ChatEdit_UpdateHeader()`
+- **Frame Management**: `CreateFrame()`, `BackdropTemplate`
+- **Texture System**: `SetColorTexture()`, `SetAllPoints()`
+- **Font Rendering**: `CreateFontString()`, `SetFont()`, UTF-8 string manipulation
+
+### Performance
+
+- **Lightweight**: Minimal memory footprint (~100KB)
+- **Event-driven**: Only updates when game state changes
+- **No continuous polling**: Uses WoW's event system efficiently
+- **Texture caching**: Reuses button objects from pool
 
 ## Troubleshooting
 
 ### Buttons not appearing
 
-- Check if channels are enabled in settings (`/chatbar`)
-- Verify you actually have access to those channels (in guild, party, etc.)
-- Try `/reload` to refresh the addon
+- **Check settings**: Ensure channels are enabled in `/chatbar` settings
+- **Verify access**: Confirm you have access to those channels (in guild, party, battleground, etc.)
+- **Reload UI**: Try `/reload` to refresh the addon
+- **Check numbered channels**: For General/Trade, ensure "Show Numbered Channels" is enabled
 
-### Bar not following chat frame
+### Text not visible on buttons
 
-- Make sure a chat editbox has focus
-- Try clicking in the chat input box
-- Check if bar visibility is enabled (`/chatbar show`)
+- **Font size**: Adjust font size slider in settings (8-24px range)
+- **Text color**: Buttons use chat type colors or white - check theme settings
+- **UTF-8 characters**: If using Cyrillic or Asian characters, ensure latest version is installed
+- **Reload required**: After changing font settings, `/reload` may be needed
 
 ### Settings not saving
 
-- Check SavedVariables are enabled in WoW settings
-- Verify addon is loaded properly
-- Try `/chatbar reset` then reconfigure
+- **SavedVariables**: Verify SavedVariables are enabled in WoW settings
+- **Addon loaded**: Check addon is enabled in character select screen
+- **Profile mode**: If sharing settings isn't working, check profile mode (account vs character)
+- **Reset option**: Try `/chatbar reset` then reconfigure from scratch
 
 ### Interface version error
 
-- Addon requires WoW Retail (The War Within, patch 12.0.0+)
-- Not compatible with Classic Era or Classic Wrath
+- Addon requires **WoW Retail** (Midnight expansion, patch 12.0.0+)
+- **Not compatible** with Classic Era or Classic Wrath
 
-## Customization
+## Advanced
 
-### Adding Custom Channels
+### File Structure
 
-The addon automatically detects numbered channels. To filter specific ones:
+```MD
+ChatBar/
+├── ChatBar.lua          # Main addon logic
+├── ChatBar.toc          # Addon manifest
+├── ChatBar.tga          # Addon icon
+├── Config.lua           # Settings panel UI
+├── README.md            # Documentation
+└── Locales/
+    ├── Locales.lua      # English (base)
+    ├── deDE.lua         # German
+    ├── esES.lua         # Spanish
+    ├── frFR.lua         # French
+    └── ruRU.lua         # Russian
+```
 
-1. Open settings (`/chatbar`)
-2. Enable/disable "Numbered Channels"
-3. Addon will detect all joined channels
+### Extending Localization
 
-### Adjusting Position
+To add a new language:
 
-- **Manual**: Drag the bar with left mouse button
-- **Automatic**: Bar follows active chat frame focus
+1. Create `Locales/xxXX.lua` (e.g., `zhCN.lua` for Chinese)
+2. Add to `ChatBar.toc` file list
+3. Copy structure from `Locales.lua`
+4. Translate all strings
+5. Submit as contribution
 
 ## Support & Contribution
 
 ### Reporting Issues
 
-Please report bugs or feature requests with:
+When reporting bugs, please include:
 
-- WoW version and build number
-- Addon version
-- Steps to reproduce
-- Error messages (if any)
+- **WoW Version**: Game patch number (e.g., 12.0.0.65560)
+- **Addon Version**: ChatBar version (shown in `/chatbar`)
+- **Steps to Reproduce**: Clear description of what you did
+- **Expected vs Actual**: What should happen vs what actually happens
+- **Error Messages**: Any Lua errors from BugSack or similar addon
+- **Other Addons**: List of other chat addons installed
 
 ### Feature Requests
 
-Suggestions for new features are welcome!
+Feature suggestions are welcome! Prioritization based on:
+
+- Community interest
+- Technical feasibility
+- Alignment with addon purpose (lightweight chat channel switcher)
+
+### Contributing
+
+Contributions welcome via:
+
+- Bug reports and testing
+- Localization translations
+- Code improvements
+- Documentation updates
 
 ## License
 
-This addon is provided as-is for World of Warcraft players.
+This addon is free software provided as-is for World of Warcraft players. Feel free to modify and distribute with attribution.
