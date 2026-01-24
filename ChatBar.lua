@@ -497,10 +497,15 @@ function ChatBar:GetOrCreateButton(index)
     button:SetPushedTexture(button.pushedTexture)
     button:SetHighlightTexture(button.highlightTexture)
     
-    -- Create font string
-    local text = button:CreateFontString(nil, "OVERLAY")
+    -- Create font string with proper template
+    local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     button.text = text
     text:SetPoint("CENTER")
+    text:SetJustifyH("CENTER")
+    text:SetJustifyV("MIDDLE")
+    text:SetTextColor(1, 1, 1, 1) -- Default to white
+    text:SetShadowColor(0, 0, 0, 1) -- Black shadow for visibility
+    text:SetShadowOffset(1, -1)
     
     -- Scripts
     button:SetScript("OnClick", function(self, mouseButton)
@@ -537,31 +542,47 @@ function ChatBar:SetupButton(button, channelData)
     end
     
     -- Apply custom font size if configured
-    if settings.fontSize then
-        local fontPath, _, fontFlags = button.text:GetFont()
-        if fontPath then
-            button.text:SetFont(fontPath, settings.fontSize, fontFlags)
-        end
+    local fontSize = settings.fontSize or 12
+    local fontPath, _, fontFlags = button.text:GetFont()
+    if fontPath then
+        button.text:SetFont(fontPath, fontSize, fontFlags)
     end
+    
+    -- Set text color and ensure visibility
+    button.text:SetTextColor(1, 1, 1, 1)
+    button.text:Show() -- Explicitly show the text
     
     -- Set text
     if channelData.isNumbered then
         button.text:SetText(tostring(channelData.id)) -- Channel number
+        print("ChatBar DEBUG: Set numbered button text to:", channelData.id)
     else
         local info = ns.ChannelInfo[channelData.channelType]
         if info and info.labelKey then
             -- Get localized label
             local label = L[info.labelKey]
             
-            -- Extract first character
+            -- Extract first character (UTF-8 aware)
             local firstChar = "?"
             if label and type(label) == "string" and #label > 0 then
-                firstChar = label:sub(1, 1):upper()
+                -- Use UTF-8 aware substring for multi-byte characters (Cyrillic, etc.)
+                if string.utf8sub then
+                    firstChar = string.utf8sub(label, 1, 1):upper()
+                else
+                    -- Fallback: extract first UTF-8 character using pattern
+                    firstChar = (label:match("^([%z\1-\127\194-\244][\128-\191]*)") or "?"):upper()
+                end
             end
             
+            print("ChatBar DEBUG: Channel", channelData.channelType, "labelKey:", info.labelKey, "label:", label, "firstChar:", firstChar)
             button.text:SetText(firstChar)
+            
+            -- Debug: verify text was set
+            local actualText = button.text:GetText()
+            print("ChatBar DEBUG: After SetText, GetText returns:", actualText)
         else
             -- Fallback
+            print("ChatBar DEBUG: No info found for channel:", channelData.channelType)
             button.text:SetText("?")
         end
     end
