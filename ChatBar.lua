@@ -20,6 +20,7 @@ ns.Defaults = {
     barVisible = true,
     lockPosition = false,
     barPosition = nil, -- Saved position {point, relativePoint, x, y}
+    fontSize = 12, -- Button text font size
     keybind = nil,
     
     -- Channel configuration
@@ -55,32 +56,39 @@ ns.Defaults = {
 ns.Themes = {
     buttons = {
         classic = {
-            size = 28,
-            spacing = 2,
+            size = 24,
+            spacing = 1,
             font = "GameFontNormalSmall",
-            normalTexture = "Interface\\Buttons\\UI-Silver-Button-Up",
-            pushedTexture = "Interface\\Buttons\\UI-Silver-Button-Down",
-            highlightTexture = "Interface\\Buttons\\UI-Common-MouseHilight",
+            useProgrammaticTextures = true,
+            normalColor = { r = 0.25, g = 0.25, b = 0.25, a = 0.8 },
+            pushedColor = { r = 0.15, g = 0.15, b = 0.15, a = 0.9 },
+            highlightColor = { r = 0.4, g = 0.4, b = 0.4, a = 0.5 },
+            borderSize = 1,
+            borderColor = { r = 0.5, g = 0.5, b = 0.5, a = 1 },
             useChatColors = true
         },
         modern = {
-            size = 32,
-            spacing = 4,
+            size = 24,
+            spacing = 1,
             font = "GameFontNormal",
-            normalAtlas = "UI-Frame-Button-Up",
-            pushedAtlas = "UI-Frame-Button-Down",
-            highlightAtlas = "UI-Frame-Button-Highlight",
+            useProgrammaticTextures = true,
+            normalColor = { r = 0.15, g = 0.15, b = 0.15, a = 0.9 },
+            pushedColor = { r = 0.05, g = 0.05, b = 0.05, a = 1 },
+            highlightColor = { r = 0.3, g = 0.3, b = 0.3, a = 0.6 },
+            borderSize = 2,
+            borderColor = { r = 0.35, g = 0.35, b = 0.35, a = 1 },
             useChatColors = true
         },
         minimal = {
             size = 24,
             spacing = 1,
             font = "GameFontNormalSmall",
-            normalTexture = nil, -- No texture, just colored backgrounds
-            pushedTexture = nil,
-            highlightTexture = "Interface\\Buttons\\UI-Common-MouseHilight",
-            useChatColors = true,
-            useBackdrop = true
+            useProgrammaticTextures = true,
+            normalColor = { r = 0.0, g = 0.0, b = 0.0, a = 0.6 },
+            pushedColor = { r = 0.0, g = 0.0, b = 0.0, a = 0.8 },
+            highlightColor = { r = 0.3, g = 0.3, b = 0.3, a = 0.4 },
+            borderSize = 0,
+            useChatColors = true
         }
     },
     
@@ -473,6 +481,22 @@ function ChatBar:GetOrCreateButton(index)
     local button = CreateFrame("Button", "ChatBarButton" .. index, barFrame, "BackdropTemplate")
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     
+    -- Create programmatic textures for button states
+    button.normalTexture = button:CreateTexture(nil, "BACKGROUND")
+    button.normalTexture:SetAllPoints()
+    
+    button.pushedTexture = button:CreateTexture(nil, "BACKGROUND")
+    button.pushedTexture:SetAllPoints()
+    
+    button.highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
+    button.highlightTexture:SetAllPoints()
+    button.highlightTexture:SetBlendMode("ADD")
+    
+    -- Set the textures to the button
+    button:SetNormalTexture(button.normalTexture)
+    button:SetPushedTexture(button.pushedTexture)
+    button:SetHighlightTexture(button.highlightTexture)
+    
     -- Create font string
     local text = button:CreateFontString(nil, "OVERLAY")
     button.text = text
@@ -512,6 +536,14 @@ function ChatBar:SetupButton(button, channelData)
         end
     end
     
+    -- Apply custom font size if configured
+    if settings.fontSize then
+        local fontPath, _, fontFlags = button.text:GetFont()
+        if fontPath then
+            button.text:SetFont(fontPath, settings.fontSize, fontFlags)
+        end
+    end
+    
     -- Set text
     if channelData.isNumbered then
         button.text:SetText(tostring(channelData.id)) -- Channel number
@@ -545,55 +577,88 @@ end
 
 -- Apply button theme
 function ChatBar:ApplyButtonTheme(button, theme, channelData)
-    -- Set textures (setting a new texture replaces the old one)
-    if theme.normalTexture then
-        button:SetNormalTexture(theme.normalTexture)
-    elseif theme.normalAtlas then
-        button:SetNormalAtlas(theme.normalAtlas)
-    end
-    
-    if theme.pushedTexture then
-        button:SetPushedTexture(theme.pushedTexture)
-    elseif theme.pushedAtlas then
-        button:SetPushedAtlas(theme.pushedAtlas)
-    end
-    
-    if theme.highlightTexture then
-        button:SetHighlightTexture(theme.highlightTexture, "ADD")
-    elseif theme.highlightAtlas then
-        button:SetHighlightAtlas(theme.highlightAtlas, "ADD")
-    end
-    
-    -- Apply colors - make sure text is visible
+    -- Get chat color for this channel
     local chatType = channelData.isNumbered and "CHANNEL" or channelData.channelType
     local chatColor = ChatTypeInfo[chatType]
     
-    if theme.useChatColors and chatColor then
-        -- Use chat color for text
-        button.text:SetTextColor(chatColor.r, chatColor.g, chatColor.b, 1)
-        
-        -- Apply to normal texture if exists
-        local normalTex = button:GetNormalTexture()
-        if normalTex and theme.normalTexture then
-            normalTex:SetVertexColor(chatColor.r, chatColor.g, chatColor.b, 0.3)
+    if theme.useProgrammaticTextures then
+        -- Use programmatic color textures
+        if button.normalTexture then
+            if theme.useChatColors and chatColor then
+                -- Tint button with channel color
+                button.normalTexture:SetColorTexture(
+                    chatColor.r * 0.5 + theme.normalColor.r * 0.5,
+                    chatColor.g * 0.5 + theme.normalColor.g * 0.5,
+                    chatColor.b * 0.5 + theme.normalColor.b * 0.5,
+                    theme.normalColor.a
+                )
+            else
+                button.normalTexture:SetColorTexture(
+                    theme.normalColor.r,
+                    theme.normalColor.g,
+                    theme.normalColor.b,
+                    theme.normalColor.a
+                )
+            end
         end
-    else
-        -- Fallback to white text
-        button.text:SetTextColor(1, 1, 1, 1)
+        
+        if button.pushedTexture then
+            if theme.useChatColors and chatColor then
+                button.pushedTexture:SetColorTexture(
+                    chatColor.r * 0.4 + theme.pushedColor.r * 0.6,
+                    chatColor.g * 0.4 + theme.pushedColor.g * 0.6,
+                    chatColor.b * 0.4 + theme.pushedColor.b * 0.6,
+                    theme.pushedColor.a
+                )
+            else
+                button.pushedTexture:SetColorTexture(
+                    theme.pushedColor.r,
+                    theme.pushedColor.g,
+                    theme.pushedColor.b,
+                    theme.pushedColor.a
+                )
+            end
+        end
+        
+        if button.highlightTexture then
+            button.highlightTexture:SetColorTexture(
+                theme.highlightColor.r,
+                theme.highlightColor.g,
+                theme.highlightColor.b,
+                theme.highlightColor.a
+            )
+        end
+        
+        -- Apply border using backdrop
+        if theme.borderSize and theme.borderSize > 0 then
+            button:SetBackdrop({
+                bgFile = nil,
+                edgeFile = "Interface\\Buttons\\WHITE8X8",
+                tile = false,
+                edgeSize = theme.borderSize,
+                insets = { left = 0, right = 0, top = 0, bottom = 0 }
+            })
+            
+            if theme.useChatColors and chatColor then
+                button:SetBackdropBorderColor(chatColor.r, chatColor.g, chatColor.b, theme.borderColor.a)
+            else
+                button:SetBackdropBorderColor(
+                    theme.borderColor.r,
+                    theme.borderColor.g,
+                    theme.borderColor.b,
+                    theme.borderColor.a
+                )
+            end
+        else
+            button:SetBackdrop(nil)
+        end
     end
     
-    -- Apply backdrop for minimal theme
-    if theme.useBackdrop then
-        button:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = nil,
-            tile = false,
-            insets = { left = 0, right = 0, top = 0, bottom = 0 }
-        })
-        
-        if chatColor then
-            button:SetBackdropColor(chatColor.r, chatColor.g, chatColor.b, 0.3)
-        end
+    -- Set text color
+    if theme.useChatColors and chatColor then
+        button.text:SetTextColor(chatColor.r, chatColor.g, chatColor.b, 1)
+    else
+        button.text:SetTextColor(1, 1, 1, 1)
     end
 end
 

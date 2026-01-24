@@ -188,6 +188,34 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 60
     
+    -- Font Size Section
+    local fontSizeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    fontSizeLabel:SetPoint("TOPLEFT", 16, yOffset)
+    fontSizeLabel:SetText("Font Size:")
+    
+    local fontSizeSlider = CreateFrame("Slider", "ChatBarFontSizeSlider", content, "OptionsSliderTemplate")
+    fontSizeSlider:SetPoint("TOPLEFT", fontSizeLabel, "BOTTOMLEFT", 4, -20)
+    fontSizeSlider:SetMinMaxValues(8, 24)
+    fontSizeSlider:SetValueStep(1)
+    fontSizeSlider:SetObeyStepOnDrag(true)
+    fontSizeSlider:SetWidth(200)
+    
+    -- Set slider labels
+    _G[fontSizeSlider:GetName() .. "Low"]:SetText("8")
+    _G[fontSizeSlider:GetName() .. "High"]:SetText("24")
+    _G[fontSizeSlider:GetName() .. "Text"]:SetText("12")
+    
+    fontSizeSlider:SetScript("OnValueChanged", function(self, value)
+        local settings = ChatBar:GetSettings()
+        settings.fontSize = value
+        _G[self:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
+        ChatBar:Refresh()
+    end)
+    
+    content.fontSizeSlider = fontSizeSlider
+    
+    yOffset = yOffset - 80
+    
     -- Channel Configuration Section
     local channelLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     channelLabel:SetPoint("TOPLEFT", 16, yOffset)
@@ -344,6 +372,11 @@ function Config:RefreshPanel(panel)
     
     -- Lock position
     content.lockPosition:SetChecked(settings.lockPosition)
+    
+    -- Font size
+    if content.fontSizeSlider then
+        content.fontSizeSlider:SetValue(settings.fontSize or 12)
+    end
 end
 
 -- Open settings panel
