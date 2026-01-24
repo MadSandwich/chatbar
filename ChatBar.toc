@@ -1,0 +1,19 @@
+## Interface: 120000
+## Title: ChatBar
+## Notes: Quick chat channel switcher with customizable button bar above chat frame
+## Author: Artsem Burlai
+## Version: 1.0.0
+## X-Category: Chat
+## SavedVariables: ChatBarDB
+## SavedVariablesPerCharacter: ChatBarCharDB
+
+# Localization files (load first)
+Locales\Locales.lua
+Locales\deDE.lua
+Locales\esES.lua
+Locales\frFR.lua
+Locales\ruRU.lua
+
+# Core files
+ChatBar.lua
+Config.lua
