@@ -555,7 +555,6 @@ function ChatBar:SetupButton(button, channelData)
     -- Set text
     if channelData.isNumbered then
         button.text:SetText(tostring(channelData.id)) -- Channel number
-        print("ChatBar DEBUG: Set numbered button text to:", channelData.id)
     else
         local info = ns.ChannelInfo[channelData.channelType]
         if info and info.labelKey then
@@ -574,15 +573,9 @@ function ChatBar:SetupButton(button, channelData)
                 end
             end
             
-            print("ChatBar DEBUG: Channel", channelData.channelType, "labelKey:", info.labelKey, "label:", label, "firstChar:", firstChar)
             button.text:SetText(firstChar)
-            
-            -- Debug: verify text was set
-            local actualText = button.text:GetText()
-            print("ChatBar DEBUG: After SetText, GetText returns:", actualText)
         else
             -- Fallback
-            print("ChatBar DEBUG: No info found for channel:", channelData.channelType)
             button.text:SetText("?")
         end
     end
