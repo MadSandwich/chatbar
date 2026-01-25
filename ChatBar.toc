@@ -2,7 +2,7 @@
 ## Title: ChatBar
 ## Notes: Quick chat channel switcher with customizable button bar above chat frame
 ## Author: Artsem Burlai
-## Version: 1.0.0
+## Version: 1.0.1
 ## IconTexture: Interface\AddOns\ChatBar\ChatBar
 ## X-Category: Chat
 ## SavedVariables: ChatBarDB
