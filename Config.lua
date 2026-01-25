@@ -119,7 +119,7 @@ function Config:CreateSettingsPanel()
     local barThemeDropdown = CreateFrame("Frame", "ChatBarBarThemeDropdown", content, "UIDropDownMenuTemplate")
     barThemeDropdown:SetPoint("TOPLEFT", barThemeLabel, "BOTTOMLEFT", -16, -4)
     
-    local barThemeOrder = {"classic", "modern", "minimal"}
+    local barThemeOrder = {"classic", "minimal"}
     UIDropDownMenu_SetWidth(barThemeDropdown, 150)
     UIDropDownMenu_Initialize(barThemeDropdown, function(self, level)
         local settings = ChatBar:GetSettings()

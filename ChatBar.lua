@@ -677,17 +677,22 @@ function ChatBar:SetupButton(button, channelData)
     local chatType = channelData.isNumbered and "CHANNEL" or channelData.channelType
     local chatColor = ChatTypeInfo[chatType]
     
-    -- Clean up old textures if theme changed
-    if ns.Textures and button.currentShape and button.currentShape ~= theme.shape then
-        ns.Textures:CleanupButton(button)
+    -- Clean up old textures if theme changed or size changed
+    if ns.Textures then
+        local sizeChanged = button.currentSize and button.currentSize ~= buttonSize
+        local shapeChanged = button.currentShape and button.currentShape ~= theme.shape
+        
+        if sizeChanged or shapeChanged then
+            ns.Textures:CleanupButton(button)
+        end
     end
     
     -- Create shape-specific textures using Textures module
     if ns.Textures then
-        -- Only recreate textures if shape changed or doesn't exist
-        if not button.currentShape or button.currentShape ~= theme.shape then
-            -- Clean up old textures if shape changed
-            if button.currentShape then
+        -- Recreate textures if shape changed, size changed, or doesn't exist
+        if not button.currentShape or button.currentShape ~= theme.shape or not button.currentSize or button.currentSize ~= buttonSize then
+            -- Clean up old textures if they exist
+            if button.currentShape or button.currentSize then
                 ns.Textures:CleanupButton(button)
             end
             
@@ -698,6 +703,7 @@ function ChatBar:SetupButton(button, channelData)
                 ns.Textures:CreateSquareButton(button, theme, buttonSize)
             end
             button.currentShape = theme.shape
+            button.currentSize = buttonSize
         end
     end
     
