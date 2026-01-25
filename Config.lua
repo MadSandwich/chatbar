@@ -216,6 +216,22 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 80
     
+    -- Flash Notifications Section
+    local flashCheckbox = CreateFrame("CheckButton", "ChatBarFlashNotifications", content, "UICheckButtonTemplate")
+    flashCheckbox:SetPoint("TOPLEFT", 16, yOffset)
+    flashCheckbox.text = flashCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    flashCheckbox.text:SetPoint("LEFT", flashCheckbox, "RIGHT", 0, 0)
+    flashCheckbox.text:SetText(L.FLASH_NOTIFICATIONS_DESC or "Flash buttons on new messages")
+    
+    flashCheckbox:SetScript("OnClick", function(self)
+        local settings = ChatBar:GetSettings()
+        settings.flashNotifications = self:GetChecked()
+    end)
+    
+    content.flashCheckbox = flashCheckbox
+    
+    yOffset = yOffset - 40
+    
     -- Channel Configuration Section
     local channelLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     channelLabel:SetPoint("TOPLEFT", 16, yOffset)
@@ -376,6 +392,11 @@ function Config:RefreshPanel(panel)
     -- Font size
     if content.fontSizeSlider then
         content.fontSizeSlider:SetValue(settings.fontSize or 12)
+    end
+    
+    -- Flash notifications
+    if content.flashCheckbox then
+        content.flashCheckbox:SetChecked(settings.flashNotifications ~= false)
     end
 end
 

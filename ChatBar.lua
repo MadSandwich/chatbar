@@ -22,27 +22,29 @@ ns.Defaults = {
     barPosition = nil, -- Saved position {point, relativePoint, x, y}
     fontSize = 12, -- Button text font size
     keybind = nil,
+    flashNotifications = true, -- Flash buttons on new messages
     
     -- Channel configuration
     channels = {
         -- Always available
         SAY = { enabled = true, order = 1 },
         YELL = { enabled = true, order = 2 },
-        EMOTE = { enabled = true, order = 3 },
-        WHISPER = { enabled = true, order = 4 },
+        EMOTE = { enabled = false, order = 3 },
+        WHISPER = { enabled = false, order = 4 },
+        BN_WHISPER = { enabled = false, order = 5 },
         
         -- Group channels
-        PARTY = { enabled = true, order = 5 },
-        RAID = { enabled = true, order = 6 },
-        RAID_WARNING = { enabled = true, order = 7 },
-        INSTANCE_CHAT = { enabled = true, order = 8 },
+        PARTY = { enabled = true, order = 6 },
+        RAID = { enabled = true, order = 7 },
+        RAID_WARNING = { enabled = true, order = 8 },
+        INSTANCE_CHAT = { enabled = true, order = 9 },
         
         -- Guild channels
-        GUILD = { enabled = true, order = 9 },
-        OFFICER = { enabled = true, order = 10 },
+        GUILD = { enabled = true, order = 10 },
+        OFFICER = { enabled = true, order = 11 },
         
         -- PvP channels
-        BATTLEGROUND = { enabled = true, order = 11 },
+        BATTLEGROUND = { enabled = true, order = 12 },
     },
     
     -- Numbered channels (General, Trade, LocalDefense, etc.)
@@ -138,6 +140,7 @@ ns.ChannelInfo = {
     YELL = { labelKey = "CHAT_YELL", command = "YELL", requiresTarget = false },
     EMOTE = { labelKey = "CHAT_EMOTE", command = "EMOTE", requiresTarget = false },
     WHISPER = { labelKey = "CHAT_WHISPER", command = "WHISPER", requiresTarget = true },
+    BN_WHISPER = { labelKey = "CHAT_BN_WHISPER", command = "BN_WHISPER", requiresTarget = true },
     PARTY = { labelKey = "CHAT_PARTY", command = "PARTY", requiresTarget = false },
     RAID = { labelKey = "CHAT_RAID", command = "RAID", requiresTarget = false },
     RAID_WARNING = { labelKey = "CHAT_RAID_WARNING", command = "RAID_WARNING", requiresTarget = false },
@@ -308,9 +311,29 @@ function ChatBar:RegisterEvents()
     barFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     barFrame:RegisterEvent("UPDATE_CHAT_WINDOWS")
     
+    -- Chat message events for flash notifications (always registered)
+    barFrame:RegisterEvent("CHAT_MSG_SAY")
+    barFrame:RegisterEvent("CHAT_MSG_YELL")
+    barFrame:RegisterEvent("CHAT_MSG_EMOTE")
+    barFrame:RegisterEvent("CHAT_MSG_WHISPER")
+    barFrame:RegisterEvent("CHAT_MSG_BN_WHISPER")
+    barFrame:RegisterEvent("CHAT_MSG_PARTY")
+    barFrame:RegisterEvent("CHAT_MSG_PARTY_LEADER")
+    barFrame:RegisterEvent("CHAT_MSG_RAID")
+    barFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
+    barFrame:RegisterEvent("CHAT_MSG_RAID_WARNING")
+    barFrame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT")
+    barFrame:RegisterEvent("CHAT_MSG_INSTANCE_CHAT_LEADER")
+    barFrame:RegisterEvent("CHAT_MSG_GUILD")
+    barFrame:RegisterEvent("CHAT_MSG_OFFICER")
+    barFrame:RegisterEvent("CHAT_MSG_CHANNEL")
+    
     barFrame:SetScript("OnEvent", function(frame, event, ...)
         if ChatBar[event] then
             ChatBar[event](ChatBar, ...)
+        else
+            -- Handle chat message events for flashing
+            ChatBar:HandleChatMessageEvent(event, ...)
         end
     end)
 end
@@ -344,6 +367,102 @@ end
 
 function ChatBar:UPDATE_CHAT_WINDOWS()
     self:PositionBar()
+end
+
+-- Handle chat message events for flash notifications
+function ChatBar:HandleChatMessageEvent(event, ...)
+    local settings = self:GetSettings()
+    if not settings.flashNotifications then return end
+    
+    -- Get sender information (2nd parameter is playerName, 12th is GUID)
+    local text, playerName = ...
+    local playerGUID = select(12, ...)
+    
+    -- Check if message is from the player (ignore own messages)
+    local myName = UnitName("player")
+    local myGUID = UnitGUID("player")
+    
+    if playerName == myName or playerGUID == myGUID then
+        return -- Don't flash for own messages
+    end
+    
+    -- Extract channel type from event name (strip "CHAT_MSG_" prefix)
+    local channelType
+    
+    if event == "CHAT_MSG_CHANNEL" then
+        -- For numbered channels, get the channel number from parameters
+        local chanNum = select(8, ...)
+        if type(chanNum) == "number" then
+            -- Find button for this numbered channel
+            for _, button in pairs(activeButtons) do
+                if button.channelData and button.channelData.isNumbered and button.channelData.id == chanNum then
+                    self:FlashButton(button)
+                    return
+                end
+            end
+        end
+        return
+    else
+        -- For regular channels, strip "CHAT_MSG_" prefix to get channel type
+        channelType = event:sub(10) -- Remove "CHAT_MSG_" (9 chars + 1)
+        
+        -- Map event suffixes to our channel types
+        if channelType == "PARTY_LEADER" then
+            channelType = "PARTY"
+        elseif channelType == "RAID_LEADER" then
+            channelType = "RAID"
+        elseif channelType == "INSTANCE_CHAT_LEADER" then
+            channelType = "INSTANCE_CHAT"
+        end
+    end
+    
+    if not channelType then return end
+    
+    -- Find button for this channel type
+    for _, button in pairs(activeButtons) do
+        if button.channelData and button.channelData.channelType == channelType then
+            self:FlashButton(button)
+            break
+        end
+    end
+end
+
+function ChatBar:FlashButton(button)
+    if not button then return end
+    
+    -- Stop any existing flash
+    if button.isFlashing then
+        self:StopFlashButton(button)
+    end
+    
+    button.isFlashing = true
+    button.flashStopTime = GetTime() + 3 -- Flash for 3 seconds
+    button.flashTexture:Show()
+    button.flashAnim:Play()
+    
+    -- Set up timer to stop flashing after 3 seconds
+    if not button.flashTimer then
+        button.flashTimer = C_Timer.NewTicker(0.1, function()
+            if button.flashStopTime and GetTime() >= button.flashStopTime then
+                ChatBar:StopFlashButton(button)
+            end
+        end)
+    end
+end
+
+function ChatBar:StopFlashButton(button)
+    if not button then return end
+    
+    button.isFlashing = false
+    button.flashStopTime = nil
+    button.flashAnim:Stop()
+    button.flashTexture:Hide()
+    
+    -- Cancel timer if it exists
+    if button.flashTimer then
+        button.flashTimer:Cancel()
+        button.flashTimer = nil
+    end
 end
 
 -- Check if a channel is available
@@ -506,6 +625,38 @@ function ChatBar:GetOrCreateButton(index)
     text:SetTextColor(1, 1, 1, 1) -- Default to white
     text:SetShadowColor(0, 0, 0, 1) -- Black shadow for visibility
     text:SetShadowOffset(1, -1)
+    
+    -- Create flash texture for notifications
+    button.flashTexture = button:CreateTexture(nil, "OVERLAY")
+    button.flashTexture:SetAllPoints()
+    button.flashTexture:SetColorTexture(1, 1, 0, 0.3) -- Yellow flash
+    button.flashTexture:Hide()
+    
+    -- Create flash animation (3 seconds total, 5 pulses of 0.6s each)
+    button.flashAnim = button.flashTexture:CreateAnimationGroup()
+    button.flashAnim:SetLooping("REPEAT")
+    button.flashAnim:SetScript("OnFinished", function(self)
+        local btn = self:GetParent():GetParent()
+        if btn then
+            ChatBar:StopFlashButton(btn)
+        end
+    end)
+    
+    local fadeOut = button.flashAnim:CreateAnimation("Alpha")
+    fadeOut:SetFromAlpha(0.5)
+    fadeOut:SetToAlpha(0)
+    fadeOut:SetDuration(0.3)
+    fadeOut:SetSmoothing("IN")
+    
+    local fadeIn = button.flashAnim:CreateAnimation("Alpha")
+    fadeIn:SetFromAlpha(0)
+    fadeIn:SetToAlpha(0.5)
+    fadeIn:SetDuration(0.3)
+    fadeIn:SetSmoothing("OUT")
+    fadeIn:SetOrder(2)
+    
+    button.isFlashing = false
+    button.flashStopTime = nil
     
     -- Scripts
     button:SetScript("OnClick", function(self, mouseButton)
@@ -719,6 +870,9 @@ end
 function ChatBar:OnButtonClick(button, mouseButton)
     if not currentChatFrame then return end
     
+    -- Stop flashing when clicked
+    self:StopFlashButton(button)
+    
     local channelData = button.channelData
     
     if channelData.isNumbered then
@@ -734,9 +888,10 @@ function ChatBar:OnButtonClick(button, mouseButton)
         -- Standard channel
         local info = ns.ChannelInfo[channelData.channelType]
         if info then
-            if info.requiresTarget and channelData.channelType == "WHISPER" then
+            if info.requiresTarget and (channelData.channelType == "WHISPER" or channelData.channelType == "BN_WHISPER") then
                 -- For whisper, open chat with /w command
-                ChatFrame_OpenChat("/w ", currentChatFrame)
+                local cmd = channelData.channelType == "BN_WHISPER" and "/bw " or "/w "
+                ChatFrame_OpenChat(cmd, currentChatFrame)
                 return
             else
                 -- Open chat and set channel type
@@ -850,6 +1005,43 @@ function ChatBar:HandleSlashCommand(msg)
         -- Open settings panel
         if ns.Config then
             ns.Config:OpenSettings()
+        end
+    end
+end
+
+-- Keybinding functions
+function ChatBar:SwitchToChannel(channelType)
+    local L = ns.L
+    local info = ns.ChannelInfo[channelType]
+    if not info then return end
+    
+    -- Check if channel is available
+    local channels = self:GetAvailableChannels()
+    local found = false
+    for _, channel in ipairs(channels) do
+        if channel.channelType == channelType then
+            found = true
+            break
+        end
+    end
+    
+    if not found then
+        print(string.format("%s: Channel %s not available", L.ADDON_NAME, channelType))
+        return
+    end
+    
+    -- Switch to channel
+    local editBox = ChatEdit_ChooseBoxForSend()
+    if editBox then
+        ChatEdit_SetLastActiveWindow(editBox)
+        ChatEdit_UpdateHeader(editBox)
+        
+        local chatType = info.command
+        editBox:SetAttribute("chatType", chatType)
+        ChatEdit_UpdateHeader(editBox)
+        
+        if not editBox:IsShown() then
+            ChatEdit_ActivateChat(editBox)
         end
     end
 end

@@ -1,0 +1,35 @@
+<Bindings>
+    <Binding name="CHATBAR_TOGGLE" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:ToggleBar() end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_SAY" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("SAY") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_YELL" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("YELL") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_EMOTE" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("EMOTE") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_WHISPER" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("WHISPER") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_BN_WHISPER" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("BN_WHISPER") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_PARTY" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("PARTY") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_RAID" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("RAID") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_GUILD" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("GUILD") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_OFFICER" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("OFFICER") end
+    </Binding>
+    <Binding name="CHATBAR_SWITCH_BATTLEGROUND" category="BINDING_HEADER_CHATBAR">
+        if ns.ChatBar then ns.ChatBar:SwitchToChannel("BATTLEGROUND") end
+    </Binding>
+</Bindings>
