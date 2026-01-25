@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Constants
-ChatBar.VERSION = "1.0.1"
+ChatBar.VERSION = "1.0.2"
 
 -- Default settings
 ns.Defaults = {
