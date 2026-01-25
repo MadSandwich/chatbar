@@ -90,7 +90,7 @@ function Config:CreateSettingsPanel()
     local buttonThemeDropdown = CreateFrame("Frame", "ChatBarButtonThemeDropdown", content, "UIDropDownMenuTemplate")
     buttonThemeDropdown:SetPoint("TOPLEFT", buttonThemeLabel, "BOTTOMLEFT", -16, -4)
     
-    local buttonThemeOrder = {"classic", "round", "square"}
+    local buttonThemeOrder = {"square", "round"}
     UIDropDownMenu_SetWidth(buttonThemeDropdown, 150)
     UIDropDownMenu_Initialize(buttonThemeDropdown, function(self, level)
         local settings = ChatBar:GetSettings()

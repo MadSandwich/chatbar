@@ -8,13 +8,13 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Constants
-ChatBar.VERSION = "1.0.3"
+ChatBar.VERSION = "1.1.0"
 
 -- Default settings
 ns.Defaults = {
     version = 1,
     profileMode = "account", -- "account" or "character"
-    buttonTheme = "classic",
+    buttonTheme = "square",
     barTheme = "classic",
     orientation = "horizontal", -- "horizontal" or "vertical"
     barVisible = true,
@@ -59,13 +59,13 @@ ns.Defaults = {
 -- Theme presets
 ns.Themes = {
     buttons = {
-        classic = {
+        square = {
             spacing = 1,
             font = "GameFontNormalSmall",
             shape = "square",
             useProgrammaticTextures = true,
-            normalColor = { r = 1.0, g = 1.0, b = 1.0, a = 0.9 }, -- Will be fully replaced by channel color
-            pushedColor = { r = 0.7, g = 0.7, b = 0.7, a = 1.0 }, -- Darker version of channel color
+            normalColor = { r = 1.0, g = 1.0, b = 1.0, a = 0.9 },
+            pushedColor = { r = 0.7, g = 0.7, b = 0.7, a = 1.0 },
             highlightColor = { r = 1.0, g = 1.0, b = 1.0, a = 0.3 },
             borderSize = 1,
             borderColor = { r = 0.0, g = 0.0, b = 0.0, a = 0.8 },
@@ -84,19 +84,6 @@ ns.Themes = {
             borderColor = { r = 0.0, g = 0.0, b = 0.0, a = 0.0 },
             useChatColors = true,
             fullChannelColor = true -- Round buttons show full channel colors
-        },
-        square = {
-            spacing = 3,
-            font = "GameFontNormalSmall",
-            shape = "square",
-            cornerRadius = 4,
-            useProgrammaticTextures = true,
-            normalColor = { r = 0.22, g = 0.27, b = 0.32, a = 0.85 },
-            pushedColor = { r = 0.12, g = 0.17, b = 0.22, a = 0.95 },
-            highlightColor = { r = 0.45, g = 0.55, b = 0.65, a = 0.5 },
-            borderSize = 2,
-            borderColor = { r = 0.5, g = 0.6, b = 0.7, a = 1 },
-            useChatColors = true
         },
     },
     
@@ -667,7 +654,7 @@ end
 function ChatBar:SetupButton(button, channelData)
     local L = ns.L
     local settings = self:GetSettings()
-    local theme = ns.Themes.buttons[settings.buttonTheme] or ns.Themes.buttons.classic
+    local theme = ns.Themes.buttons[settings.buttonTheme] or ns.Themes.buttons.square
     
     button.channelData = channelData
     local buttonSize = settings.buttonSize or 18
@@ -889,7 +876,7 @@ function ChatBar:LayoutButtons()
     if #activeButtons == 0 then return end
     
     local settings = self:GetSettings()
-    local theme = ns.Themes.buttons[settings.buttonTheme] or ns.Themes.buttons.classic
+    local theme = ns.Themes.buttons[settings.buttonTheme] or ns.Themes.buttons.square
     local barTheme = ns.Themes.bars[settings.barTheme] or ns.Themes.bars.classic
     
     local padding = barTheme.padding
