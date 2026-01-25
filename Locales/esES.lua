@@ -37,6 +37,9 @@ L.SHOW_NUMBERED_CHANNELS = "Mostrar canales numerados (General, Comercio, etc.)"
 L.FLASH_NOTIFICATIONS = "Notificaciones parpadeantes:"
 L.FLASH_NOTIFICATIONS_DESC = "Parpadear botones cuando lleguen mensajes nuevos"
 L.FONT_SIZE = "Tamaño de fuente:"
+L.TEXT_POSITION = "Posición del texto:"
+L.TEXT_POSITION_INSIDE = "Dentro de botones"
+L.TEXT_POSITION_ABOVE = "Sobre botones"
 
 -- Override keybinding globals for Spanish
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

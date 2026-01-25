@@ -37,6 +37,9 @@ L.SHOW_NUMBERED_CHANNELS = "Afficher les canaux numérotés (Général, Commerce
 L.FLASH_NOTIFICATIONS = "Notifications clignotantes:"
 L.FLASH_NOTIFICATIONS_DESC = "Faire clignoter les boutons lors de nouveaux messages"
 L.FONT_SIZE = "Taille de police:"
+L.TEXT_POSITION = "Position du texte:"
+L.TEXT_POSITION_INSIDE = "Dans les boutons"
+L.TEXT_POSITION_ABOVE = "Au-dessus des boutons"
 
 -- Override keybinding globals for French
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

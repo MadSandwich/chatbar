@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Constants
-ChatBar.VERSION = "1.0.2"
+ChatBar.VERSION = "1.0.3"
 
 -- Default settings
 ns.Defaults = {
@@ -21,6 +21,7 @@ ns.Defaults = {
     lockPosition = false,
     barPosition = nil, -- Saved position {point, relativePoint, x, y}
     fontSize = 12, -- Button text font size
+    textPosition = "inside", -- "inside" or "above" - where to display channel letters
     keybind = nil,
     flashNotifications = true, -- Flash buttons on new messages
     
@@ -697,6 +698,14 @@ function ChatBar:SetupButton(button, channelData)
     local fontPath, _, fontFlags = button.text:GetFont()
     if fontPath then
         button.text:SetFont(fontPath, fontSize, fontFlags)
+    end
+    
+    -- Position text based on settings
+    button.text:ClearAllPoints()
+    if settings.textPosition == "above" then
+        button.text:SetPoint("BOTTOM", button, "TOP", 0, 2)
+    else
+        button.text:SetPoint("CENTER")
     end
     
     -- Set text color and ensure visibility

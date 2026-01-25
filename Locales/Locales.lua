@@ -46,6 +46,9 @@ L.SHOW_NUMBERED_CHANNELS = "Show numbered channels (General, Trade, LocalDefense
 L.FLASH_NOTIFICATIONS = "Flash Notifications:"
 L.FLASH_NOTIFICATIONS_DESC = "Flash buttons when new messages arrive"
 L.FONT_SIZE = "Font Size:"
+L.TEXT_POSITION = "Text Position:"
+L.TEXT_POSITION_INSIDE = "Inside buttons"
+L.TEXT_POSITION_ABOVE = "Above buttons"
 
 -- Set globals for keybinding system (must be in global namespace)
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

@@ -37,6 +37,9 @@ L.SHOW_NUMBERED_CHANNELS = "Показывать нумерованные кан
 L.FLASH_NOTIFICATIONS = "Уведомления:"
 L.FLASH_NOTIFICATIONS_DESC = "Мигать кнопками при новых сообщениях"
 L.FONT_SIZE = "Размер шрифта:"
+L.TEXT_POSITION = "Положение текста:"
+L.TEXT_POSITION_INSIDE = "Внутри кнопок"
+L.TEXT_POSITION_ABOVE = "Над кнопками"
 
 -- Override keybinding globals for Russian
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

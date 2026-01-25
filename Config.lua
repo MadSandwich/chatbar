@@ -216,6 +216,42 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 80
     
+    -- Text Position Section
+    local textPosLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    textPosLabel:SetPoint("TOPLEFT", 16, yOffset)
+    textPosLabel:SetText(L.TEXT_POSITION or "Text Position:")
+    
+    local textPosInside = CreateFrame("CheckButton", "ChatBarTextPosInside", content, "UIRadioButtonTemplate")
+    textPosInside:SetPoint("TOPLEFT", textPosLabel, "BOTTOMLEFT", 0, -8)
+    textPosInside.text = textPosInside:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    textPosInside.text:SetPoint("LEFT", textPosInside, "RIGHT", 0, 0)
+    textPosInside.text:SetText(L.TEXT_POSITION_INSIDE or "Inside buttons")
+    
+    local textPosAbove = CreateFrame("CheckButton", "ChatBarTextPosAbove", content, "UIRadioButtonTemplate")
+    textPosAbove:SetPoint("LEFT", textPosInside, "RIGHT", 120, 0)
+    textPosAbove.text = textPosAbove:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    textPosAbove.text:SetPoint("LEFT", textPosAbove, "RIGHT", 0, 0)
+    textPosAbove.text:SetText(L.TEXT_POSITION_ABOVE or "Above buttons")
+    
+    textPosInside:SetScript("OnClick", function(self)
+        local settings = ChatBar:GetSettings()
+        settings.textPosition = "inside"
+        textPosAbove:SetChecked(false)
+        ChatBar:Refresh()
+    end)
+    
+    textPosAbove:SetScript("OnClick", function(self)
+        local settings = ChatBar:GetSettings()
+        settings.textPosition = "above"
+        textPosInside:SetChecked(false)
+        ChatBar:Refresh()
+    end)
+    
+    content.textPosInside = textPosInside
+    content.textPosAbove = textPosAbove
+    
+    yOffset = yOffset - 50
+    
     -- Flash Notifications Section
     local flashCheckbox = CreateFrame("CheckButton", "ChatBarFlashNotifications", content, "UICheckButtonTemplate")
     flashCheckbox:SetPoint("TOPLEFT", 16, yOffset)
@@ -392,6 +428,13 @@ function Config:RefreshPanel(panel)
     -- Font size
     if content.fontSizeSlider then
         content.fontSizeSlider:SetValue(settings.fontSize or 12)
+    end
+    
+    -- Text position
+    if content.textPosInside and content.textPosAbove then
+        local textPos = settings.textPosition or "inside"
+        content.textPosInside:SetChecked(textPos == "inside")
+        content.textPosAbove:SetChecked(textPos == "above")
     end
     
     -- Flash notifications

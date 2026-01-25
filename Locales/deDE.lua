@@ -37,6 +37,9 @@ L.SHOW_NUMBERED_CHANNELS = "Nummerierte Kanäle anzeigen (Allgemein, Handel, etc
 L.FLASH_NOTIFICATIONS = "Blinkbenachrichtigungen:"
 L.FLASH_NOTIFICATIONS_DESC = "Schaltflächen blinken bei neuen Nachrichten"
 L.FONT_SIZE = "Schriftgröße:"
+L.TEXT_POSITION = "Textposition:"
+L.TEXT_POSITION_INSIDE = "In Schaltflächen"
+L.TEXT_POSITION_ABOVE = "Über Schaltflächen"
 
 -- Override keybinding globals for German
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"
