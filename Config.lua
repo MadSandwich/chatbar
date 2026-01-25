@@ -81,76 +81,66 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 80
     
-    -- Button Theme Section (Radio Buttons)
+    -- Two-column layout for themes
+    -- Button Theme Section (Dropdown)
     local buttonThemeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     buttonThemeLabel:SetPoint("TOPLEFT", 16, yOffset)
     buttonThemeLabel:SetText(L.BUTTON_THEME or "Button Theme:")
     
-    local buttonThemeRadios = {}
-    local themeYOffset = yOffset - 24
-    local themeOrder = {"classic", "modern", "minimal"}
+    local buttonThemeDropdown = CreateFrame("Frame", "ChatBarButtonThemeDropdown", content, "UIDropDownMenuTemplate")
+    buttonThemeDropdown:SetPoint("TOPLEFT", buttonThemeLabel, "BOTTOMLEFT", -16, -4)
     
-    for i, themeName in ipairs(themeOrder) do
-        local radio = CreateFrame("CheckButton", "ChatBarButtonTheme" .. themeName, content, "UIRadioButtonTemplate")
-        radio:SetPoint("TOPLEFT", 16, themeYOffset - ((i - 1) * 28))
-        radio.text = radio:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        radio.text:SetPoint("LEFT", radio, "RIGHT", 0, 0)
-        radio.text:SetText(themeName:sub(1,1):upper() .. themeName:sub(2))
-        
-        radio.themeName = themeName
-        radio:SetScript("OnClick", function(self)
-            local settings = ChatBar:GetSettings()
-            settings.buttonTheme = themeName
-            -- Uncheck others
-            for _, otherRadio in pairs(buttonThemeRadios) do
-                if otherRadio ~= self then
-                    otherRadio:SetChecked(false)
-                end
+    local buttonThemeOrder = {"classic", "round", "square"}
+    UIDropDownMenu_SetWidth(buttonThemeDropdown, 150)
+    UIDropDownMenu_Initialize(buttonThemeDropdown, function(self, level)
+        local settings = ChatBar:GetSettings()
+        local info = UIDropDownMenu_CreateInfo()
+        for _, themeName in ipairs(buttonThemeOrder) do
+            info.text = themeName:gsub("(%l)(%u)", "%1 %2"):gsub("^%l", string.upper)
+            info.value = themeName
+            info.func = function(self)
+                local settings = ChatBar:GetSettings()
+                settings.buttonTheme = themeName
+                UIDropDownMenu_SetSelectedValue(buttonThemeDropdown, themeName)
+                ChatBar:Refresh()
             end
-            ChatBar:Refresh()
-        end)
-        
-        buttonThemeRadios[themeName] = radio
-    end
+            info.checked = (settings.buttonTheme == themeName)
+            UIDropDownMenu_AddButton(info)
+        end
+    end)
     
-    content.buttonThemeRadios = buttonThemeRadios
+    content.buttonThemeDropdown = buttonThemeDropdown
     
-    yOffset = themeYOffset - (#themeOrder * 28) - 20
-    
-    -- Bar Theme Section (Radio Buttons)
+    -- Bar Theme Section (Dropdown) - Same row, second column
     local barThemeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    barThemeLabel:SetPoint("TOPLEFT", 16, yOffset)
+    barThemeLabel:SetPoint("TOPLEFT", 300, yOffset)
     barThemeLabel:SetText(L.BAR_THEME or "Bar Theme:")
     
-    local barThemeRadios = {}
-    themeYOffset = yOffset - 24
+    local barThemeDropdown = CreateFrame("Frame", "ChatBarBarThemeDropdown", content, "UIDropDownMenuTemplate")
+    barThemeDropdown:SetPoint("TOPLEFT", barThemeLabel, "BOTTOMLEFT", -16, -4)
     
-    for i, themeName in ipairs(themeOrder) do
-        local radio = CreateFrame("CheckButton", "ChatBarBarTheme" .. themeName, content, "UIRadioButtonTemplate")
-        radio:SetPoint("TOPLEFT", 16, themeYOffset - ((i - 1) * 28))
-        radio.text = radio:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        radio.text:SetPoint("LEFT", radio, "RIGHT", 0, 0)
-        radio.text:SetText(themeName:sub(1,1):upper() .. themeName:sub(2))
-        
-        radio.themeName = themeName
-        radio:SetScript("OnClick", function(self)
-            local settings = ChatBar:GetSettings()
-            settings.barTheme = themeName
-            -- Uncheck others
-            for _, otherRadio in pairs(barThemeRadios) do
-                if otherRadio ~= self then
-                    otherRadio:SetChecked(false)
-                end
+    local barThemeOrder = {"classic", "modern", "minimal"}
+    UIDropDownMenu_SetWidth(barThemeDropdown, 150)
+    UIDropDownMenu_Initialize(barThemeDropdown, function(self, level)
+        local settings = ChatBar:GetSettings()
+        local info = UIDropDownMenu_CreateInfo()
+        for _, themeName in ipairs(barThemeOrder) do
+            info.text = themeName:sub(1,1):upper() .. themeName:sub(2)
+            info.value = themeName
+            info.func = function(self)
+                local settings = ChatBar:GetSettings()
+                settings.barTheme = themeName
+                UIDropDownMenu_SetSelectedValue(barThemeDropdown, themeName)
+                ChatBar:Refresh()
             end
-            ChatBar:Refresh()
-        end)
-        
-        barThemeRadios[themeName] = radio
-    end
+            info.checked = (settings.barTheme == themeName)
+            UIDropDownMenu_AddButton(info)
+        end
+    end)
     
-    content.barThemeRadios = barThemeRadios
+    content.barThemeDropdown = barThemeDropdown
     
-    yOffset = themeYOffset - (#themeOrder * 28) - 20
+    yOffset = yOffset - 70
     
     -- Orientation Section
     local orientationLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -188,7 +178,8 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 60
     
-    -- Font Size Section
+    -- Two-column layout for sizes
+    -- Font Size Section (Left column)
     local fontSizeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     fontSizeLabel:SetPoint("TOPLEFT", 16, yOffset)
     fontSizeLabel:SetText("Font Size:")
@@ -198,7 +189,7 @@ function Config:CreateSettingsPanel()
     fontSizeSlider:SetMinMaxValues(8, 24)
     fontSizeSlider:SetValueStep(1)
     fontSizeSlider:SetObeyStepOnDrag(true)
-    fontSizeSlider:SetWidth(200)
+    fontSizeSlider:SetWidth(120)
     
     -- Set slider labels
     _G[fontSizeSlider:GetName() .. "Low"]:SetText("8")
@@ -213,6 +204,32 @@ function Config:CreateSettingsPanel()
     end)
     
     content.fontSizeSlider = fontSizeSlider
+    
+    -- Button Size Section (Right column)
+    local buttonSizeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    buttonSizeLabel:SetPoint("TOPLEFT", 300, yOffset)
+    buttonSizeLabel:SetText("Button Size:")
+    
+    local buttonSizeSlider = CreateFrame("Slider", "ChatBarButtonSizeSlider", content, "OptionsSliderTemplate")
+    buttonSizeSlider:SetPoint("TOPLEFT", buttonSizeLabel, "BOTTOMLEFT", 4, -20)
+    buttonSizeSlider:SetMinMaxValues(10, 32)
+    buttonSizeSlider:SetValueStep(1)
+    buttonSizeSlider:SetObeyStepOnDrag(true)
+    buttonSizeSlider:SetWidth(120)
+    
+    -- Set slider labels
+    _G[buttonSizeSlider:GetName() .. "Low"]:SetText("10")
+    _G[buttonSizeSlider:GetName() .. "High"]:SetText("32")
+    _G[buttonSizeSlider:GetName() .. "Text"]:SetText("18")
+    
+    buttonSizeSlider:SetScript("OnValueChanged", function(self, value)
+        local settings = ChatBar:GetSettings()
+        settings.buttonSize = value
+        _G[self:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
+        ChatBar:Refresh()
+    end)
+    
+    content.buttonSizeSlider = buttonSizeSlider
     
     yOffset = yOffset - 80
     
@@ -398,14 +415,14 @@ function Config:RefreshPanel(panel)
     content.profileAccount:SetChecked(ns.db.profileMode == "account")
     content.profileCharacter:SetChecked(ns.db.profileMode == "character")
     
-    -- Button theme radios
-    for themeName, radio in pairs(content.buttonThemeRadios) do
-        radio:SetChecked(settings.buttonTheme == themeName)
+    -- Button theme dropdown
+    if content.buttonThemeDropdown then
+        UIDropDownMenu_SetSelectedValue(content.buttonThemeDropdown, settings.buttonTheme)
     end
     
-    -- Bar theme radios
-    for themeName, radio in pairs(content.barThemeRadios) do
-        radio:SetChecked(settings.barTheme == themeName)
+    -- Bar theme dropdown
+    if content.barThemeDropdown then
+        UIDropDownMenu_SetSelectedValue(content.barThemeDropdown, settings.barTheme)
     end
     
     -- Orientation
@@ -428,6 +445,11 @@ function Config:RefreshPanel(panel)
     -- Font size
     if content.fontSizeSlider then
         content.fontSizeSlider:SetValue(settings.fontSize or 12)
+    end
+    
+    -- Button size
+    if content.buttonSizeSlider then
+        content.buttonSizeSlider:SetValue(settings.buttonSize or 20)
     end
     
     -- Text position

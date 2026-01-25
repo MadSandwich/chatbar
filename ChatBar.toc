@@ -16,5 +16,6 @@ Locales\frFR.lua
 Locales\ruRU.lua
 
 # Core files
+Textures.lua
 ChatBar.lua
 Config.lua
