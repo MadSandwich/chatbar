@@ -37,8 +37,8 @@ function Textures:ApplyRoundedCorners(texture, size, radius)
 end
 
 -- Create round button textures
-function Textures:CreateRoundButton(button, theme, chatColor)
-    local size = theme.size or 24
+function Textures:CreateRoundButton(button, theme, chatColor, buttonSize)
+    local size = buttonSize or 20
     local borderSize = theme.borderSize or 2
     
     -- Calculate radius for rounded corners (half size makes it circular)
@@ -129,8 +129,8 @@ function Textures:CreateRoundButton(button, theme, chatColor)
 end
 
 -- Create square button textures with optional rounded corners
-function Textures:CreateSquareButton(button, theme)
-    local size = theme.size or 24
+function Textures:CreateSquareButton(button, theme, buttonSize)
+    local size = buttonSize or 20
     local borderSize = theme.borderSize or 2
     local cornerRadius = theme.cornerRadius or 0
     

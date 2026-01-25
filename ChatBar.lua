@@ -114,21 +114,9 @@ ns.Themes = {
             borderColor = { r = 1, g = 1, b = 1, a = 1 },
             padding = 6
         },
-        modern = {
-            backdrop = {
-                bgFile = "Interface\\Buttons\\WHITE8X8",
-                edgeFile = "Interface\\Buttons\\WHITE8X8",
-                tile = false,
-                edgeSize = 2,
-                insets = { left = 4, right = 4, top = 4, bottom = 4 }
-            },
-            bgColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.9 },
-            borderColor = { r = 0.3, g = 0.3, b = 0.3, a = 1 },
-            padding = 6
-        },
         minimal = {
             backdrop = {
-                bgFile = "Interface\\Buttons\\WHITE8X8",
+                bgFile = nil,
                 edgeFile = nil,
                 tile = false,
                 insets = { left = 4, right = 4, top = 4, bottom = 4 }
@@ -705,9 +693,9 @@ function ChatBar:SetupButton(button, channelData)
             
             -- Create new textures for the current shape
             if theme.shape == "round" then
-                ns.Textures:CreateRoundButton(button, theme, chatColor)
+                ns.Textures:CreateRoundButton(button, theme, chatColor, buttonSize)
             else
-                ns.Textures:CreateSquareButton(button, theme)
+                ns.Textures:CreateSquareButton(button, theme, buttonSize)
             end
             button.currentShape = theme.shape
         end
