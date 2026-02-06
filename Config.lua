@@ -81,66 +81,64 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 80
     
-    -- Two-column layout for themes
-    -- Button Theme Section (Dropdown)
-    local buttonThemeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    buttonThemeLabel:SetPoint("TOPLEFT", 16, yOffset)
-    buttonThemeLabel:SetText(L.BUTTON_THEME or "Button Theme:")
+    -- Skin Selection Section
+    local skinLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    skinLabel:SetPoint("TOPLEFT", 16, yOffset)
+    skinLabel:SetText(L.SKIN_SELECTION or "Skin:")
     
-    local buttonThemeDropdown = CreateFrame("Frame", "ChatBarButtonThemeDropdown", content, "UIDropDownMenuTemplate")
-    buttonThemeDropdown:SetPoint("TOPLEFT", buttonThemeLabel, "BOTTOMLEFT", -16, -4)
+    -- Create custom dropdown frame for skin selection
+    local skinDropdown = CreateFrame("Frame", "ChatBarSkinDropdown", content, "UIDropDownMenuTemplate")
+    skinDropdown:SetPoint("TOPLEFT", skinLabel, "BOTTOMLEFT", -16, -4)
+    UIDropDownMenu_SetWidth(skinDropdown, 200)
     
-    local buttonThemeOrder = {"square", "round"}
-    UIDropDownMenu_SetWidth(buttonThemeDropdown, 150)
-    UIDropDownMenu_Initialize(buttonThemeDropdown, function(self, level)
+    -- Initialize dropdown with available skins
+    UIDropDownMenu_Initialize(skinDropdown, function(self, level)
         local settings = ChatBar:GetSettings()
-        local info = UIDropDownMenu_CreateInfo()
-        for _, themeName in ipairs(buttonThemeOrder) do
-            info.text = themeName:gsub("(%l)(%u)", "%1 %2"):gsub("^%l", string.upper)
-            info.value = themeName
+        local skins = ns.Textures:GetAvailableSkins()
+        
+        for _, skinInfo in ipairs(skins) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = skinInfo.name
+            info.value = skinInfo.id
+            info.tooltipTitle = skinInfo.name
+            info.tooltipText = skinInfo.description .. "\n|cff888888by " .. skinInfo.author .. "|r"
+            info.tooltipOnButton = true
             info.func = function(self)
                 local settings = ChatBar:GetSettings()
-                settings.buttonTheme = themeName
-                UIDropDownMenu_SetSelectedValue(buttonThemeDropdown, themeName)
-                ChatBar:Refresh()
+                settings.skinName = skinInfo.id
+                UIDropDownMenu_SetSelectedValue(skinDropdown, skinInfo.id)
+                UIDropDownMenu_SetText(skinDropdown, skinInfo.name)
+                -- Hot-swap skin
+                ns.Textures:LoadSkin(skinInfo.id)
+                -- Apply skin's default fontSize to settings
+                local newSkin = ns.Textures:GetCurrentSkin()
+                if newSkin and newSkin.fontSize then
+                    settings.fontSize = newSkin.fontSize
+                end
+                ChatBar:RefreshAllButtons()
+                ChatBar:RefreshBarTextures()
+                ChatBar:LayoutButtons()
+                -- Refresh config UI to show new fontSize
+                if ns.Config and ns.Config.panel then
+                    ns.Config:RefreshPanel(ns.Config.panel)
+                end
             end
-            info.checked = (settings.buttonTheme == themeName)
+            info.checked = (settings.skinName == skinInfo.id)
             UIDropDownMenu_AddButton(info)
         end
     end)
     
-    content.buttonThemeDropdown = buttonThemeDropdown
+    content.skinDropdown = skinDropdown
     
-    -- Bar Theme Section (Dropdown) - Same row, second column
-    local barThemeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    barThemeLabel:SetPoint("TOPLEFT", 300, yOffset)
-    barThemeLabel:SetText(L.BAR_THEME or "Bar Theme:")
+    -- Skin description text
+    local skinDescription = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    skinDescription:SetPoint("TOPLEFT", skinDropdown, "BOTTOMLEFT", 20, 0)
+    skinDescription:SetTextColor(0.6, 0.6, 0.6)
+    skinDescription:SetWidth(300)
+    skinDescription:SetJustifyH("LEFT")
+    content.skinDescription = skinDescription
     
-    local barThemeDropdown = CreateFrame("Frame", "ChatBarBarThemeDropdown", content, "UIDropDownMenuTemplate")
-    barThemeDropdown:SetPoint("TOPLEFT", barThemeLabel, "BOTTOMLEFT", -16, -4)
-    
-    local barThemeOrder = {"classic", "minimal"}
-    UIDropDownMenu_SetWidth(barThemeDropdown, 150)
-    UIDropDownMenu_Initialize(barThemeDropdown, function(self, level)
-        local settings = ChatBar:GetSettings()
-        local info = UIDropDownMenu_CreateInfo()
-        for _, themeName in ipairs(barThemeOrder) do
-            info.text = themeName:sub(1,1):upper() .. themeName:sub(2)
-            info.value = themeName
-            info.func = function(self)
-                local settings = ChatBar:GetSettings()
-                settings.barTheme = themeName
-                UIDropDownMenu_SetSelectedValue(barThemeDropdown, themeName)
-                ChatBar:Refresh()
-            end
-            info.checked = (settings.barTheme == themeName)
-            UIDropDownMenu_AddButton(info)
-        end
-    end)
-    
-    content.barThemeDropdown = barThemeDropdown
-    
-    yOffset = yOffset - 70
+    yOffset = yOffset - 80
     
     -- Orientation Section
     local orientationLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -390,17 +388,12 @@ function Config:CreateSettingsPanel()
     
     self.panel = panel
     
-    -- Add to interface options
+    -- Add to interface options using modern Settings API (WoW 12.0.1+)
     if Settings and Settings.RegisterCanvasLayoutCategory then
-        -- Dragonflight+ (10.0+)
         local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
         Settings.RegisterAddOnCategory(category)
         panel.category = category
         self.settingsCategory = category
-    else
-        -- Legacy interface options
-        InterfaceOptions_AddCategory(panel)
-        self.settingsPanel = panel
     end
     
     return panel
@@ -415,14 +408,17 @@ function Config:RefreshPanel(panel)
     content.profileAccount:SetChecked(ns.db.profileMode == "account")
     content.profileCharacter:SetChecked(ns.db.profileMode == "character")
     
-    -- Button theme dropdown
-    if content.buttonThemeDropdown then
-        UIDropDownMenu_SetSelectedValue(content.buttonThemeDropdown, settings.buttonTheme)
-    end
-    
-    -- Bar theme dropdown
-    if content.barThemeDropdown then
-        UIDropDownMenu_SetSelectedValue(content.barThemeDropdown, settings.barTheme)
+    -- Skin dropdown
+    if content.skinDropdown then
+        local skinName = settings.skinName or "Default"
+        local skin = ns.SkinRegistry and ns.SkinRegistry[skinName]
+        UIDropDownMenu_SetSelectedValue(content.skinDropdown, skinName)
+        UIDropDownMenu_SetText(content.skinDropdown, skin and skin.name or skinName)
+        
+        -- Update description text
+        if content.skinDescription and skin then
+            content.skinDescription:SetText(skin.description .. " | by " .. (skin.author or "Unknown"))
+        end
     end
     
     -- Orientation
@@ -445,11 +441,12 @@ function Config:RefreshPanel(panel)
     -- Font size
     if content.fontSizeSlider then
         content.fontSizeSlider:SetValue(settings.fontSize or 12)
+        _G[content.fontSizeSlider:GetName() .. "Text"]:SetText(tostring(math.floor(settings.fontSize or 12)))
     end
     
     -- Button size
     if content.buttonSizeSlider then
-        content.buttonSizeSlider:SetValue(settings.buttonSize or 20)
+        content.buttonSizeSlider:SetValue(settings.buttonSize or 24)
     end
     
     -- Text position
@@ -467,23 +464,14 @@ end
 
 -- Open settings panel
 function Config:OpenSettings()
-    if not self.settingsCategory and not self.settingsPanel then
+    if not self.settingsCategory then
         local L = ns.L
         print(string.format("%s: %s", L.ADDON_NAME, L.MSG_SETTINGS_LOADING))
         return
     end
     
     if Settings and Settings.OpenToCategory then
-        -- Dragonflight+ (10.0+)
-        if self.settingsCategory then
-            Settings.OpenToCategory(self.settingsCategory:GetID())
-        end
-    else
-        -- Legacy
-        if self.settingsPanel then
-            InterfaceOptionsFrame_OpenToCategory(self.settingsPanel)
-            InterfaceOptionsFrame_OpenToCategory(self.settingsPanel) -- Call twice to fix issue
-        end
+        Settings.OpenToCategory(self.settingsCategory:GetID())
     end
 end
 

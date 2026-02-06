@@ -1,330 +1,597 @@
--- ChatBar: Custom Texture and Shape Manager
--- Textures file
+-- ChatBar: Skin-Based Texture Manager
+-- Handles loading skins, creating button/bar textures, and live skin switching
 
 local addonName, ns = ...
 
--- Create Textures object
+-- Create Textures module
 local Textures = {}
 ns.Textures = Textures
 
---[[
-    This module provides programmatic texture generation for button shapes.
-    We support both round and square button shapes with customizable borders and colors.
+-- Skin system state
+Textures.currentSkin = nil
+Textures.skinPath = nil
+Textures.availableSkins = {}
+
+-- Constants
+local ADDON_PATH = "Interface\\AddOns\\ChatBar\\Skins\\"
+local BLIZZARD_CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+
+--[[ 
+    Skin Loading System
 ]]
 
--- Helper function to create a solid color texture
-function Textures:CreateColorTexture(frame, color, alpha)
-    local texture = frame:CreateTexture(nil, "BACKGROUND")
-    texture:SetColorTexture(color.r, color.g, color.b, alpha or color.a)
-    return texture
-end
-
--- Helper function to draw a circle mask (approximation using  texture coordinates)
--- For true circular buttons, we'll use SetTexCoord to create rounded corners
-function Textures:ApplyRoundedCorners(texture, size, radius)
-    -- Calculate texture coordinates for rounded corners
-    -- This creates an approximation of rounded corners by trimming the texture
-    local cornerCut = radius / size
+-- Get list of available skins from the registry
+function Textures:GetAvailableSkins()
+    local skins = {}
     
-    if cornerCut > 0 and cornerCut < 0.5 then
-        -- Apply subtle corner rounding by adjusting texture coordinates
-        -- Note: This is a simple approach; for perfect circles, you'd need custom artwork
-        texture:SetTexCoord(
-            cornerCut, 1 - cornerCut,  -- left, right
-            cornerCut, 1 - cornerCut   -- top, bottom
-        )
+    if ns.SkinRegistry then
+        for skinName, skinData in pairs(ns.SkinRegistry) do
+            table.insert(skins, {
+                id = skinName,
+                name = skinData.name or skinName,
+                description = skinData.description or "",
+                author = skinData.author or "Unknown",
+            })
+        end
     end
+    
+    -- Sort alphabetically
+    table.sort(skins, function(a, b)
+        return a.name < b.name
+    end)
+    
+    self.availableSkins = skins
+    return skins
 end
 
--- Create round button textures
-function Textures:CreateRoundButton(button, theme, chatColor, buttonSize)
-    local size = buttonSize or 20
-    local borderSize = theme.borderSize or 2
+-- Load a skin by name
+function Textures:LoadSkin(skinName)
+    if not skinName then
+        skinName = "Default"
+    end
     
-    -- Calculate radius for rounded corners (half size makes it circular)
-    local radius = size / 2
+    -- Get skin data from registry
+    local skinData = ns.SkinRegistry and ns.SkinRegistry[skinName]
     
-    -- Create circular mask texture FIRST
-    -- Use the built-in CharacterCreate circle mask atlas
+    if not skinData then
+        -- Fallback to Default if requested skin not found
+        skinData = ns.SkinRegistry and ns.SkinRegistry["Default"]
+        skinName = "Default"
+        
+        if not skinData then
+            -- Create minimal fallback if no skins registered
+            skinData = self:CreateFallbackSkin()
+        end
+    end
+    
+    self.currentSkin = skinData
+    self.skinPath = ADDON_PATH .. skinName .. "\\"
+    
+    return skinData
+end
+
+-- Create fallback skin if none registered
+function Textures:CreateFallbackSkin()
+    return {
+        name = "Fallback",
+        author = "ChatBar",
+        description = "Fallback color-based skin",
+        shape = "square",
+        barOpacity = 0.9,
+        barPadding = 6,
+        buttonSpacing = 1,
+        textures = {},
+        colors = {
+            background = { r = 0.16, g = 0.16, b = 0.16, a = 0.9 },
+            border = { r = 0.33, g = 0.33, b = 0.33, a = 1.0 },
+            highlight = { r = 1.0, g = 1.0, b = 1.0, a = 0.3 },
+            pushed = { r = 0.1, g = 0.1, b = 0.1, a = 0.9 },
+            glow = { r = 1.0, g = 0.8, b = 0.0, a = 0.8 },
+        },
+        textColor = { r = 1.0, g = 1.0, b = 1.0, a = 1.0 },
+        textShadow = true,
+    }
+end
+
+-- Get current skin data
+function Textures:GetCurrentSkin()
+    if not self.currentSkin then
+        self:LoadSkin("Default")
+    end
+    return self.currentSkin
+end
+
+-- Get texture path for current skin
+function Textures:GetTexturePath(textureName)
+    if not self.skinPath then
+        self:LoadSkin("Default")
+    end
+    return self.skinPath .. textureName
+end
+
+--[[ 
+    Button Texture Creation
+]]
+
+-- Create all texture layers for a button
+function Textures:CreateButtonLayers(button, buttonSize)
+    local skin = self:GetCurrentSkin()
+    local size = buttonSize or 18
+    local glowSize = size * 2 -- Glow is larger for soft edges
+    
+    -- Store size reference
+    button.textureSize = size
+    
+    -- Layer order (bottom to top):
+    -- BACKGROUND: bgTexture (channel-colored fill)
+    -- BORDER: borderTexture (frame)
+    -- ARTWORK: centerTexture (optional center detail)
+    -- OVERLAY: glowTexture (notification flash, hidden by default)
+    -- HIGHLIGHT: highlightTexture (hover effect)
+    
+    -- Background texture (main fill, tinted with channel color)
+    local bgTexture = button:CreateTexture(nil, "BACKGROUND", nil, -8)
+    bgTexture:SetSize(size, size)
+    bgTexture:SetPoint("CENTER")
+    bgTexture:SetSnapToPixelGrid(true)
+    bgTexture:SetTexelSnappingBias(0)
+    button.bgTexture = bgTexture
+    
+    -- Center texture (for additional detail/overlay)
+    local centerTexture = button:CreateTexture(nil, "ARTWORK", nil, 0)
+    centerTexture:SetSize(size, size)
+    centerTexture:SetPoint("CENTER")
+    centerTexture:SetBlendMode("BLEND")
+    centerTexture:SetSnapToPixelGrid(true)
+    centerTexture:SetTexelSnappingBias(0)
+    button.centerTexture = centerTexture
+    
+    -- Border texture
+    local borderTexture = button:CreateTexture(nil, "BORDER", nil, 0)
+    borderTexture:SetSize(size, size)
+    borderTexture:SetPoint("CENTER")
+    borderTexture:SetSnapToPixelGrid(true)
+    borderTexture:SetTexelSnappingBias(0)
+    button.borderTexture = borderTexture
+    
+    -- Highlight texture (hover effect)
+    local highlightTexture = button:CreateTexture(nil, "HIGHLIGHT", nil, 0)
+    highlightTexture:SetSize(size, size)
+    highlightTexture:SetPoint("CENTER")
+    highlightTexture:SetBlendMode("ADD")
+    highlightTexture:SetSnapToPixelGrid(true)
+    highlightTexture:SetTexelSnappingBias(0)
+    button.highlightTexture = highlightTexture
+    
+    -- Pushed texture (click effect)
+    local pushedTexture = button:CreateTexture(nil, "BACKGROUND", nil, -7)
+    pushedTexture:SetSize(size, size)
+    pushedTexture:SetPoint("CENTER")
+    pushedTexture:SetSnapToPixelGrid(true)
+    pushedTexture:SetTexelSnappingBias(0)
+    pushedTexture:Hide()
+    button.pushedTexture = pushedTexture
+    
+    -- Glow texture (notification flash, larger for soft edges)
+    local glowTexture = button:CreateTexture(nil, "OVERLAY", nil, 7)
+    glowTexture:SetSize(glowSize, glowSize)
+    glowTexture:SetPoint("CENTER")
+    glowTexture:SetBlendMode("ADD")
+    glowTexture:Hide()
+    button.glowTexture = glowTexture
+    
+    -- Apply mask if round shape
+    if skin.shape == "round" then
+        self:ApplyCircleMask(button)
+    end
+    
+    -- Apply textures from skin
+    self:ApplyButtonTextures(button)
+    
+    -- Setup button scripts for pushed state
+    self:SetupButtonStateScripts(button)
+    
+    return button
+end
+
+-- Apply circle mask to button textures
+function Textures:ApplyCircleMask(button)
+    local size = button.textureSize or 18
+    
+    -- Create mask texture
     local mask = button:CreateMaskTexture()
     mask:SetSize(size, size)
     mask:SetPoint("CENTER")
-    -- Use Blizzard's built-in circular mask texture
-    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetTexture(BLIZZARD_CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     button.maskTexture = mask
     
-    -- Determine colors to use
-    local normalR, normalG, normalB, normalA
-    if theme.fullChannelColor and chatColor then
-        -- Use full channel color
-        normalR, normalG, normalB = chatColor.r, chatColor.g, chatColor.b
-        normalA = theme.normalColor.a
-    else
-        -- Use theme color
-        normalR, normalG, normalB = theme.normalColor.r, theme.normalColor.g, theme.normalColor.b
-        normalA = theme.normalColor.a
+    -- Apply mask to relevant textures
+    if button.bgTexture then
+        button.bgTexture:AddMaskTexture(mask)
     end
-    
-    -- Normal state texture (background)
-    local normalBg = button:CreateTexture(nil, "BACKGROUND", nil, -8)
-    normalBg:SetSize(size, size)
-    normalBg:SetPoint("CENTER")
-    normalBg:SetColorTexture(normalR, normalG, normalB, normalA)
-    normalBg:AddMaskTexture(mask)
-    button.normalTextureBg = normalBg
-    
-    -- Border (ring around the circle)
-    if borderSize > 0 then
-        local border = button:CreateTexture(nil, "BORDER")
-        border:SetSize(size + borderSize * 2, size + borderSize * 2)
-        border:SetPoint("CENTER")
-        border:SetColorTexture(
-            theme.borderColor.r,
-            theme.borderColor.g,
-            theme.borderColor.b,
-            theme.borderColor.a
-        )
-        border:AddMaskTexture(mask)
-        button.borderTexture = border
+    if button.centerTexture then
+        button.centerTexture:AddMaskTexture(mask)
     end
-    
-    -- Pushed state texture
-    local pushedR, pushedG, pushedB, pushedA
-    if theme.fullChannelColor and chatColor then
-        -- Use darker version of channel color
-        pushedR, pushedG, pushedB = chatColor.r * 0.7, chatColor.g * 0.7, chatColor.b * 0.7
-        pushedA = theme.pushedColor.a
-    else
-        -- Use theme color
-        pushedR, pushedG, pushedB = theme.pushedColor.r, theme.pushedColor.g, theme.pushedColor.b
-        pushedA = theme.pushedColor.a
+    if button.borderTexture then
+        button.borderTexture:AddMaskTexture(mask)
     end
-    
-    local pushedBg = button:CreateTexture(nil, "BACKGROUND", nil, -7)
-    pushedBg:SetSize(size, size)
-    pushedBg:SetPoint("CENTER")
-    pushedBg:SetColorTexture(pushedR, pushedG, pushedB, pushedA)
-    pushedBg:AddMaskTexture(mask)
-    button.pushedTextureBg = pushedBg
-    
-    -- Highlight texture
-    local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-    highlight:SetSize(size, size)
-    highlight:SetPoint("CENTER")
-    highlight:SetBlendMode("ADD")
-    highlight:SetColorTexture(
-        theme.highlightColor.r,
-        theme.highlightColor.g,
-        theme.highlightColor.b,
-        theme.highlightColor.a
-    )
-    highlight:AddMaskTexture(mask)
-    button.highlightTextureBg = highlight
-    
-    -- Note: We don't call SetNormalTexture/SetPushedTexture/SetHighlightTexture here
-    -- because those methods expect file paths or atlas names, not texture objects.
-    -- Our manually created textures are already properly configured and anchored.
-    
-    return button
+    if button.highlightTexture then
+        button.highlightTexture:AddMaskTexture(mask)
+    end
+    if button.pushedTexture then
+        button.pushedTexture:AddMaskTexture(mask)
+    end
+    -- Note: glow intentionally not masked for soft edge effect
 end
 
--- Create square button textures with optional rounded corners
-function Textures:CreateSquareButton(button, theme, buttonSize)
-    local size = buttonSize or 20
-    local borderSize = theme.borderSize or 2
-    local cornerRadius = theme.cornerRadius or 0
+-- Apply textures from current skin to button
+function Textures:ApplyButtonTextures(button)
+    local skin = self:GetCurrentSkin()
+    local colors = skin.colors or {}
     
-    -- Normal state texture (background)
-    local normalBg = button:CreateTexture(nil, "BACKGROUND", nil, -8)
-    normalBg:SetSize(size, size)
-    normalBg:SetPoint("CENTER")
-    normalBg:SetColorTexture(
-        theme.normalColor.r,
-        theme.normalColor.g,
-        theme.normalColor.b,
-        theme.normalColor.a
-    )
+    -- Try to load texture files, fallback to colors
+    local bgPath = self:GetTexturePath(skin.textures.button_bg or "button_bg")
+    local borderPath = self:GetTexturePath(skin.textures.button_border or "button_border")
+    local highlightPath = self:GetTexturePath(skin.textures.button_highlight or "button_highlight")
+    local pushedPath = self:GetTexturePath(skin.textures.button_pushed or "button_pushed")
+    local glowPath = self:GetTexturePath(skin.textures.button_glow or "button_glow")
     
-    -- Apply rounded corners if specified
-    if cornerRadius > 0 then
-        self:ApplyRoundedCorners(normalBg, size, cornerRadius)
-    end
-    button.normalTextureBg = normalBg
-    
-    -- Border (frame around the square)
-    if borderSize > 0 then
-        -- Create 4 border pieces (top, bottom, left, right)
-        -- Top border
-        local borderTop = button:CreateTexture(nil, "BORDER")
-        borderTop:SetSize(size + borderSize * 2, borderSize)
-        borderTop:SetPoint("TOP", button, "TOP", 0, borderSize)
-        borderTop:SetColorTexture(
-            theme.borderColor.r,
-            theme.borderColor.g,
-            theme.borderColor.b,
-            theme.borderColor.a
-        )
-        
-        -- Bottom border
-        local borderBottom = button:CreateTexture(nil, "BORDER")
-        borderBottom:SetSize(size + borderSize * 2, borderSize)
-        borderBottom:SetPoint("BOTTOM", button, "BOTTOM", 0, -borderSize)
-        borderBottom:SetColorTexture(
-            theme.borderColor.r,
-            theme.borderColor.g,
-            theme.borderColor.b,
-            theme.borderColor.a
-        )
-        
-        -- Left border
-        local borderLeft = button:CreateTexture(nil, "BORDER")
-        borderLeft:SetSize(borderSize, size)
-        borderLeft:SetPoint("LEFT", button, "LEFT", -borderSize, 0)
-        borderLeft:SetColorTexture(
-            theme.borderColor.r,
-            theme.borderColor.g,
-            theme.borderColor.b,
-            theme.borderColor.a
-        )
-        
-        -- Right border
-        local borderRight = button:CreateTexture(nil, "BORDER")
-        borderRight:SetSize(borderSize, size)
-        borderRight:SetPoint("RIGHT", button, "RIGHT", borderSize, 0)
-        borderRight:SetColorTexture(
-            theme.borderColor.r,
-            theme.borderColor.g,
-            theme.borderColor.b,
-            theme.borderColor.a
-        )
-        
-        button.borderTextures = {borderTop, borderBottom, borderLeft, borderRight}
+    -- Apply background (will be tinted with channel color later)
+    if button.bgTexture then
+        button.bgTexture:SetTexture(bgPath)
+        -- Fallback to white color if texture doesn't exist (white base allows proper vertex color tinting)
+        if not button.bgTexture:GetTexture() then
+            local c = colors.background or { r = 1.0, g = 1.0, b = 1.0, a = 0.9 }
+            button.bgTexture:SetColorTexture(1.0, 1.0, 1.0, c.a)
+            button.bgTexture.isColorFallback = true
+        else
+            button.bgTexture.isColorFallback = false
+        end
     end
     
-    -- Pushed state texture
-    local pushedBg = button:CreateTexture(nil, "BACKGROUND", nil, -7)
-    pushedBg:SetSize(size, size)
-    pushedBg:SetPoint("CENTER")
-    pushedBg:SetColorTexture(
-        theme.pushedColor.r,
-        theme.pushedColor.g,
-        theme.pushedColor.b,
-        theme.pushedColor.a
-    )
-    if cornerRadius > 0 then
-        self:ApplyRoundedCorners(pushedBg, size, cornerRadius)
+    -- Apply border (check skin.hideButtonBorder)
+    if button.borderTexture then
+        if skin.hideButtonBorder then
+            button.borderTexture:Hide()
+        else
+            button.borderTexture:Show()
+            button.borderTexture:SetTexture(borderPath)
+            if not button.borderTexture:GetTexture() then
+                local c = colors.border or { r = 0.4, g = 0.4, b = 0.4, a = 1.0 }
+                button.borderTexture:SetColorTexture(c.r, c.g, c.b, c.a)
+            end
+        end
     end
-    button.pushedTextureBg = pushedBg
     
-    -- Highlight texture
-    local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-    highlight:SetSize(size, size)
-    highlight:SetPoint("CENTER")
-    highlight:SetBlendMode("ADD")
-    highlight:SetColorTexture(
-        theme.highlightColor.r,
-        theme.highlightColor.g,
-        theme.highlightColor.b,
-        theme.highlightColor.a
-    )
-    if cornerRadius > 0 then
-        self:ApplyRoundedCorners(highlight, size, cornerRadius)
+    -- Apply highlight
+    if button.highlightTexture then
+        button.highlightTexture:SetTexture(highlightPath)
+        if not button.highlightTexture:GetTexture() then
+            local c = colors.highlight or { r = 1.0, g = 1.0, b = 1.0, a = 0.3 }
+            button.highlightTexture:SetColorTexture(c.r, c.g, c.b, c.a)
+        end
     end
-    button.highlightTextureBg = highlight
     
-    -- Note: We don't call SetNormalTexture/SetPushedTexture/SetHighlightTexture here
-    -- because those methods expect file paths or atlas names, not texture objects.
-    -- Our manually created textures are already properly configured and anchored.
+    -- Apply pushed
+    if button.pushedTexture then
+        button.pushedTexture:SetTexture(pushedPath)
+        if not button.pushedTexture:GetTexture() then
+            local c = colors.pushed or { r = 0.1, g = 0.1, b = 0.1, a = 0.9 }
+            button.pushedTexture:SetColorTexture(c.r, c.g, c.b, c.a)
+        end
+    end
     
-    return button
+    -- Apply glow
+    if button.glowTexture then
+        button.glowTexture:SetTexture(glowPath)
+        if not button.glowTexture:GetTexture() then
+            local c = colors.glow or { r = 1.0, g = 0.8, b = 0.0, a = 0.8 }
+            button.glowTexture:SetColorTexture(c.r, c.g, c.b, c.a)
+        end
+    end
+    
+    -- Hide center texture by default (used for optional overlays)
+    if button.centerTexture then
+        button.centerTexture:Hide()
+    end
 end
 
--- Apply channel color to button
-function Textures:ApplyChannelColor(button, chatColor, theme)
-    if not chatColor or not button.normalTextureBg then return end
+-- Setup button state scripts for pushed appearance
+function Textures:SetupButtonStateScripts(button)
+    button:HookScript("OnMouseDown", function(self)
+        if self.pushedTexture then
+            self.pushedTexture:Show()
+        end
+        if self.bgTexture then
+            self.bgTexture:SetAlpha(0.7)
+        end
+    end)
     
-    -- Tint the button with the chat channel color
+    button:HookScript("OnMouseUp", function(self)
+        if self.pushedTexture then
+            self.pushedTexture:Hide()
+        end
+        if self.bgTexture then
+            self.bgTexture:SetAlpha(1.0)
+        end
+    end)
+end
+
+-- Apply channel color to button textures
+function Textures:ApplyChannelColor(button, chatColor)
+    if not chatColor then return end
+    
     local r, g, b = chatColor.r, chatColor.g, chatColor.b
     
-    -- Apply to normal state
-    if button.normalTextureBg then
-        if theme and theme.fullChannelColor then
-            -- Use full channel color (classic/round themes)
-            button.normalTextureBg:SetColorTexture(
-                r,
-                g,
-                b,
-                button.normalTextureBg.baseA or theme.normalColor.a or 0.9
-            )
-        else
-            -- Blend with base color for other themes
-            local factor = 0.4 -- How much to blend with channel color
-            local nr = button.normalTextureBg.baseR or 0.25
-            local ng = button.normalTextureBg.baseG or 0.25
-            local nb = button.normalTextureBg.baseB or 0.25
-            
-            button.normalTextureBg:SetColorTexture(
-                nr * (1 - factor) + r * factor,
-                ng * (1 - factor) + g * factor,
-                nb * (1 - factor) + b * factor,
-                button.normalTextureBg.baseA or 0.8
-            )
-        end
+    -- Store for refresh
+    button.channelColor = chatColor
+    
+    -- Tint background with channel color
+    if button.bgTexture then
+        button.bgTexture:SetVertexColor(r, g, b)
     end
     
-    -- Apply to pushed state
-    if button.pushedTextureBg then
-        if theme and theme.fullChannelColor then
-            -- Use darker version of channel color
-            button.pushedTextureBg:SetColorTexture(
-                r * 0.7,
-                g * 0.7,
-                b * 0.7,
-                button.pushedTextureBg.baseA or theme.pushedColor.a or 1.0
-            )
-        end
+    -- Tint glow with channel color (matches channel for notification)
+    if button.glowTexture then
+        button.glowTexture:SetVertexColor(r, g, b)
     end
     
-    -- Border gets the full channel color
+    -- Optional: tint highlight slightly with channel color
+    if button.highlightTexture then
+        -- Blend channel color with white for subtle tint
+        button.highlightTexture:SetVertexColor(
+            0.7 + r * 0.3,
+            0.7 + g * 0.3,
+            0.7 + b * 0.3
+        )
+    end
+end
+
+-- Refresh button textures (for skin hot-swap)
+function Textures:RefreshButtonTextures(button)
+    if not button then return end
+    
+    local skin = self:GetCurrentSkin()
+    
+    -- Update texture paths
+    self:ApplyButtonTextures(button)
+    
+    -- Reapply mask if shape changed
+    if button.maskTexture then
+        -- Remove old mask
+        if button.bgTexture then
+            button.bgTexture:RemoveMaskTexture(button.maskTexture)
+        end
+        if button.centerTexture then
+            button.centerTexture:RemoveMaskTexture(button.maskTexture)
+        end
+        if button.borderTexture then
+            button.borderTexture:RemoveMaskTexture(button.maskTexture)
+        end
+        if button.highlightTexture then
+            button.highlightTexture:RemoveMaskTexture(button.maskTexture)
+        end
+        if button.pushedTexture then
+            button.pushedTexture:RemoveMaskTexture(button.maskTexture)
+        end
+        button.maskTexture = nil
+    end
+    
+    -- Reapply mask if round shape
+    if skin.shape == "round" then
+        self:ApplyCircleMask(button)
+    end
+    
+    -- Reapply channel color if stored
+    if button.channelColor then
+        self:ApplyChannelColor(button, button.channelColor)
+    end
+end
+
+-- Resize button textures
+function Textures:ResizeButtonTextures(button, newSize)
+    if not button then return end
+    
+    local glowSize = newSize * 2
+    button.textureSize = newSize
+    
+    if button.bgTexture then
+        button.bgTexture:SetSize(newSize, newSize)
+    end
+    if button.centerTexture then
+        button.centerTexture:SetSize(newSize, newSize)
+    end
     if button.borderTexture then
-        button.borderTexture:SetColorTexture(r, g, b, 1)
-    elseif button.borderTextures then
-        for _, border in ipairs(button.borderTextures) do
-            border:SetColorTexture(r, g, b, 1)
+        button.borderTexture:SetSize(newSize, newSize)
+    end
+    if button.highlightTexture then
+        button.highlightTexture:SetSize(newSize, newSize)
+    end
+    if button.pushedTexture then
+        button.pushedTexture:SetSize(newSize, newSize)
+    end
+    if button.glowTexture then
+        button.glowTexture:SetSize(glowSize, glowSize)
+    end
+    if button.maskTexture then
+        button.maskTexture:SetSize(newSize, newSize)
+    end
+end
+
+-- Clean up button textures
+function Textures:CleanupButton(button)
+    if not button then return end
+    
+    local texturesToClean = {
+        "bgTexture", "centerTexture", "borderTexture",
+        "highlightTexture", "pushedTexture", "glowTexture", "maskTexture"
+    }
+    
+    for _, texName in ipairs(texturesToClean) do
+        if button[texName] then
+            button[texName]:Hide()
+            button[texName]:ClearAllPoints()
+            button[texName] = nil
+        end
+    end
+    
+    -- Clear channel color reference
+    button.channelColor = nil
+    
+    -- Clear legacy texture references
+    button.normalTextureBg = nil
+    button.pushedTextureBg = nil
+    button.highlightTextureBg = nil
+    button.borderTextures = nil
+end
+
+--[[ 
+    Bar Texture Creation
+]]
+
+-- Create bar textures
+function Textures:CreateBarTextures(bar)
+    -- Background texture (stretched to fill bar)
+    local bgTexture = bar:CreateTexture(nil, "BACKGROUND", nil, -8)
+    bgTexture:SetAllPoints()
+    bar.bgTexture = bgTexture
+    
+    -- Border texture (stretched to fill bar)
+    local borderTexture = bar:CreateTexture(nil, "BORDER", nil, 0)
+    borderTexture:SetAllPoints()
+    bar.borderTexture = borderTexture
+    
+    -- Apply textures
+    self:ApplyBarTextures(bar)
+    
+    return bar
+end
+
+-- Apply bar textures from current skin
+function Textures:ApplyBarTextures(bar)
+    local skin = self:GetCurrentSkin()
+    local colors = skin.colors or {}
+    
+    -- Check if skin wants to hide the bar entirely (buttons only mode)
+    if skin.showBar == false then
+        if bar.bgTexture then
+            bar.bgTexture:Hide()
+        end
+        if bar.borderTexture then
+            bar.borderTexture:Hide()
+        end
+        return
+    end
+    
+    local bgPath = self:GetTexturePath(skin.textures.bar_bg or "bar_bg")
+    local borderPath = self:GetTexturePath(skin.textures.bar_border or "bar_border")
+    
+    -- Apply background
+    if bar.bgTexture then
+        bar.bgTexture:Show()
+        bar.bgTexture:SetTexture(bgPath)
+        if not bar.bgTexture:GetTexture() then
+            local c = colors.background or { r = 1.0, g = 1.0, b = 1.0, a = 0.9 }
+            bar.bgTexture:SetColorTexture(1.0, 1.0, 1.0, c.a)
+        end
+        bar.bgTexture:SetAlpha(skin.barOpacity or 0.9)
+    end
+    
+    -- Apply border
+    if bar.borderTexture then
+        bar.borderTexture:Show()
+        bar.borderTexture:SetTexture(borderPath)
+        if not bar.borderTexture:GetTexture() then
+            local c = colors.border or { r = 0.3, g = 0.3, b = 0.3, a = 1.0 }
+            bar.borderTexture:SetColorTexture(c.r, c.g, c.b, c.a)
         end
     end
 end
 
--- Clean up textures when button theme changes
-function Textures:CleanupButton(button)
-    if button.normalTextureBg then
-        button.normalTextureBg:Hide()
-        button.normalTextureBg = nil
+-- Refresh bar textures (for skin hot-swap)
+function Textures:RefreshBarTextures(bar)
+    if not bar then return end
+    self:ApplyBarTextures(bar)
+end
+
+--[[ 
+    Flash Animation System
+]]
+
+-- Create flash animation group for a button
+function Textures:CreateFlashAnimation(button)
+    if not button.glowTexture then return end
+    
+    local glow = button.glowTexture
+    local ag = glow:CreateAnimationGroup()
+    ag:SetLooping("REPEAT")
+    
+    -- Phase 1: Fade in + Scale up
+    local fadeIn = ag:CreateAnimation("Alpha")
+    fadeIn:SetFromAlpha(0)
+    fadeIn:SetToAlpha(0.8)
+    fadeIn:SetDuration(0.4)
+    fadeIn:SetSmoothing("IN_OUT")
+    fadeIn:SetOrder(1)
+    
+    local scaleUp = ag:CreateAnimation("Scale")
+    scaleUp:SetScaleFrom(0.9, 0.9)
+    scaleUp:SetScaleTo(1.15, 1.15)
+    scaleUp:SetDuration(0.4)
+    scaleUp:SetSmoothing("IN_OUT")
+    scaleUp:SetOrder(1)
+    scaleUp:SetOrigin("CENTER", 0, 0)
+    
+    -- Phase 2: Fade out + Scale down
+    local fadeOut = ag:CreateAnimation("Alpha")
+    fadeOut:SetFromAlpha(0.8)
+    fadeOut:SetToAlpha(0)
+    fadeOut:SetDuration(0.4)
+    fadeOut:SetSmoothing("IN_OUT")
+    fadeOut:SetOrder(2)
+    
+    local scaleDown = ag:CreateAnimation("Scale")
+    scaleDown:SetScaleFrom(1.15, 1.15)
+    scaleDown:SetScaleTo(0.9, 0.9)
+    scaleDown:SetDuration(0.4)
+    scaleDown:SetSmoothing("IN_OUT")
+    scaleDown:SetOrder(2)
+    scaleDown:SetOrigin("CENTER", 0, 0)
+    
+    button.flashAnim = ag
+    
+    return ag
+end
+
+-- Start flash animation
+function Textures:StartFlash(button)
+    if not button then return end
+    
+    -- Create animation if doesn't exist
+    if not button.flashAnim then
+        self:CreateFlashAnimation(button)
     end
     
-    if button.pushedTextureBg then
-        button.pushedTextureBg:Hide()
-        button.pushedTextureBg = nil
+    if button.glowTexture and button.flashAnim then
+        button.glowTexture:SetAlpha(0)
+        button.glowTexture:Show()
+        button.flashAnim:Play()
+        button.isFlashing = true
+    end
+end
+
+-- Stop flash animation
+function Textures:StopFlash(button)
+    if not button then return end
+    
+    if button.flashAnim then
+        button.flashAnim:Stop()
     end
     
-    if button.highlightTextureBg then
-        button.highlightTextureBg:Hide()
-        button.highlightTextureBg = nil
+    if button.glowTexture then
+        button.glowTexture:Hide()
+        button.glowTexture:SetAlpha(0)
     end
     
-    if button.borderTexture then
-        button.borderTexture:Hide()
-        button.borderTexture = nil
-    end
-    
-    if button.borderTextures then
-        for _, border in ipairs(button.borderTextures) do
-            border:Hide()
-        end
-        button.borderTextures = nil
-    end
-    
-    if button.maskTexture then
-        button.maskTexture = nil
-    end
+    button.isFlashing = false
 end
