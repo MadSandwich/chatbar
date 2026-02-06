@@ -1,10 +1,14 @@
 ## Interface: 120000
 ## Title: ChatBar
-## Notes: Quick chat channel switcher with customizable button bar above chat frame
+## Notes: Quick chat channel switcher with customizable button bar and skin system
 ## Author: Artsem Burlai
-## Version: 1.1.0
+## Version: 2.0.0
 ## IconTexture: Interface\AddOns\ChatBar\ChatBar
-## X-Category: Chat
+## Category-enUS: Chat
+## Category-deDE: Chat
+## Category-esES: Chat
+## Category-frFR: Discussion
+## Category-ruRU: Чат
 ## SavedVariables: ChatBarDB
 ## SavedVariablesPerCharacter: ChatBarCharDB
 
@@ -14,6 +18,11 @@ Locales\deDE.lua
 Locales\esES.lua
 Locales\frFR.lua
 Locales\ruRU.lua
+
+# Skin files (load before Textures.lua)
+Skins\Default\skin.lua
+Skins\Round\skin.lua
+Skins\Minimal\skin.lua
 
 # Core files
 Textures.lua

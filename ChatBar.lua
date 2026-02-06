@@ -8,23 +8,23 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Constants
-ChatBar.VERSION = "1.1.0"
+ChatBar.VERSION = "2.0.0"
 
 -- Default settings
 ns.Defaults = {
-    version = 1,
+    version = 2,
     profileMode = "account", -- "account" or "character"
-    buttonTheme = "square",
-    barTheme = "classic",
+    skinName = "Default", -- Skin folder name
     orientation = "horizontal", -- "horizontal" or "vertical"
     barVisible = true,
     lockPosition = false,
     barPosition = nil, -- Saved position {point, relativePoint, x, y}
     fontSize = 12, -- Button text font size
-    buttonSize = 18, -- Button size
+    buttonSize = 20, -- Button size (increased for better texture visibility)
     textPosition = "inside", -- "inside" or "above" - where to display channel letters
     keybind = nil,
     flashNotifications = true, -- Flash buttons on new messages
+    flashDuration = 3, -- Duration of flash notifications in seconds
     
     -- Channel configuration
     channels = {
@@ -56,64 +56,8 @@ ns.Defaults = {
     }
 }
 
--- Theme presets
-ns.Themes = {
-    buttons = {
-        square = {
-            spacing = 1,
-            font = "GameFontNormalSmall",
-            shape = "square",
-            useProgrammaticTextures = true,
-            normalColor = { r = 1.0, g = 1.0, b = 1.0, a = 0.9 },
-            pushedColor = { r = 0.7, g = 0.7, b = 0.7, a = 1.0 },
-            highlightColor = { r = 1.0, g = 1.0, b = 1.0, a = 0.3 },
-            borderSize = 1,
-            borderColor = { r = 0.0, g = 0.0, b = 0.0, a = 0.8 },
-            useChatColors = true,
-            fullChannelColor = true -- Flag to use 100% channel color
-        },
-        round = {
-            spacing = 3,
-            font = "GameFontNormalSmall",
-            shape = "round",
-            useProgrammaticTextures = true,
-            normalColor = { r = 0.1, g = 0.15, b = 0.2, a = 0.7 },
-            pushedColor = { r = 0.05, g = 0.1, b = 0.15, a = 0.85 },
-            highlightColor = { r = 0.6, g = 0.7, b = 0.8, a = 0.4 },
-            borderSize = 0,
-            borderColor = { r = 0.0, g = 0.0, b = 0.0, a = 0.0 },
-            useChatColors = true,
-            fullChannelColor = true -- Round buttons show full channel colors
-        },
-    },
-    
-    bars = {
-        classic = {
-            backdrop = {
-                bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-                edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-                tile = true,
-                tileSize = 16,
-                edgeSize = 16,
-                insets = { left = 4, right = 4, top = 4, bottom = 4 }
-            },
-            bgColor = { r = 0, g = 0, b = 0, a = 0.8 },
-            borderColor = { r = 1, g = 1, b = 1, a = 1 },
-            padding = 6
-        },
-        minimal = {
-            backdrop = {
-                bgFile = nil,
-                edgeFile = nil,
-                tile = false,
-                insets = { left = 4, right = 4, top = 4, bottom = 4 }
-            },
-            bgColor = nil,
-            borderColor = nil,
-            padding = 6
-        }
-    }
-}
+-- Skin registry (populated by skin.lua files)
+ns.SkinRegistry = ns.SkinRegistry or {}
 
 -- Channel info with localization keys
 ns.ChannelInfo = {
@@ -182,21 +126,24 @@ end
 function ChatBar:CreateBarFrame()
     if barFrame then return end
     
-    barFrame = CreateFrame("Frame", "ChatBarFrame", UIParent, "BackdropTemplate")
+    -- Load the default skin
+    local settings = self:GetSettings()
+    ns.Textures:LoadSkin(settings.skinName)
+    
+    barFrame = CreateFrame("Frame", "ChatBarFrame", UIParent)
     barFrame:SetFrameStrata("DIALOG")
     barFrame:SetSize(100, 40) -- Will be resized based on buttons
     
+    -- Create bar textures using skin system
+    ns.Textures:CreateBarTextures(barFrame)
+    
     -- Set initial position (will be overridden by saved position if exists)
-    local settings = self:GetSettings()
     if settings.barPosition then
         barFrame:SetPoint(settings.barPosition.point, UIParent, settings.barPosition.relativePoint, settings.barPosition.x, settings.barPosition.y)
     else
         -- Default: Above chat frame tabs (chat tabs are about 20px tall)
         barFrame:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, 24)
     end
-    
-    -- Apply bar theme
-    self:ApplyBarTheme()
     
     -- Make draggable
     barFrame:SetMovable(true)
@@ -226,23 +173,10 @@ function ChatBar:CreateBarFrame()
     barFrame:Show()
 end
 
--- Apply bar theme
-function ChatBar:ApplyBarTheme()
+-- Refresh bar textures from current skin
+function ChatBar:RefreshBarTextures()
     if not barFrame then return end
-    
-    local settings = self:GetSettings()
-    local theme = ns.Themes.bars[settings.barTheme] or ns.Themes.bars.classic
-    
-    barFrame:SetBackdrop(theme.backdrop)
-    
-    -- Only set colors if they exist (minimal theme has nil colors)
-    if theme.bgColor then
-        barFrame:SetBackdropColor(theme.bgColor.r, theme.bgColor.g, theme.bgColor.b, theme.bgColor.a)
-    end
-    
-    if theme.borderColor then
-        barFrame:SetBackdropBorderColor(theme.borderColor.r, theme.borderColor.g, theme.borderColor.b, theme.borderColor.a)
-    end
+    ns.Textures:RefreshBarTextures(barFrame)
 end
 
 -- Setup chat frame hooks
@@ -362,15 +296,17 @@ function ChatBar:HandleChatMessageEvent(event, ...)
     local settings = self:GetSettings()
     if not settings.flashNotifications then return end
     
-    -- Get sender information (2nd parameter is playerName, 12th is GUID)
-    local text, playerName = ...
+    -- Get sender GUID (12th parameter)
     local playerGUID = select(12, ...)
     
     -- Check if message is from the player (ignore own messages)
-    local myName = UnitName("player")
+    -- Use pcall to safely handle "secret values" in WoW's taint system
     local myGUID = UnitGUID("player")
-    
-    if playerName == myName or playerGUID == myGUID then
+    local success, isOwnMessage = pcall(function()
+        return playerGUID == myGUID
+    end)
+
+    if success and isOwnMessage then
         return -- Don't flash for own messages
     end
     
@@ -418,17 +354,19 @@ end
 function ChatBar:FlashButton(button)
     if not button then return end
     
+    local settings = self:GetSettings()
+    local duration = settings.flashDuration or 3
+    
     -- Stop any existing flash
     if button.isFlashing then
         self:StopFlashButton(button)
     end
     
-    button.isFlashing = true
-    button.flashStopTime = GetTime() + 3 -- Flash for 3 seconds
-    button.flashTexture:Show()
-    button.flashAnim:Play()
+    -- Start flash using Textures module
+    ns.Textures:StartFlash(button)
+    button.flashStopTime = GetTime() + duration
     
-    -- Set up timer to stop flashing after 3 seconds
+    -- Set up timer to stop flashing after duration
     if not button.flashTimer then
         button.flashTimer = C_Timer.NewTicker(0.1, function()
             if button.flashStopTime and GetTime() >= button.flashStopTime then
@@ -441,10 +379,10 @@ end
 function ChatBar:StopFlashButton(button)
     if not button then return end
     
-    button.isFlashing = false
     button.flashStopTime = nil
-    button.flashAnim:Stop()
-    button.flashTexture:Hide()
+    
+    -- Stop flash using Textures module
+    ns.Textures:StopFlash(button)
     
     -- Cancel timer if it exists
     if button.flashTimer then
@@ -585,51 +523,21 @@ function ChatBar:GetOrCreateButton(index)
         return buttonPool[index]
     end
     
-    local button = CreateFrame("Button", "ChatBarButton" .. index, barFrame, "BackdropTemplate")
+    local button = CreateFrame("Button", "ChatBarButton" .. index, barFrame)
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     
-    -- Note: Textures will be created in SetupButton based on theme shape
-    -- We don't create textures here to avoid issues when theme changes
-    
-    -- Create font string with proper template
-    local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    -- Create font string with standard WoW font (supports all locales including Cyrillic)
+    local text = button:CreateFontString(nil, "OVERLAY")
     button.text = text
-    text:SetPoint("CENTER")
+    text:SetFont(STANDARD_TEXT_FONT, 12, "")
+    text:SetPoint("CENTER", button, "CENTER", 0, 0)
     text:SetJustifyH("CENTER")
     text:SetJustifyV("MIDDLE")
-    text:SetTextColor(1, 1, 1, 1) -- Default to white
-    text:SetShadowColor(0, 0, 0, 1) -- Black shadow for visibility
+    text:SetTextColor(1, 1, 1, 1)
+    text:SetShadowColor(0, 0, 0, 1)
     text:SetShadowOffset(1, -1)
     
-    -- Create flash texture for notifications
-    button.flashTexture = button:CreateTexture(nil, "OVERLAY")
-    button.flashTexture:SetAllPoints()
-    button.flashTexture:SetColorTexture(1, 1, 0, 0.3) -- Yellow flash
-    button.flashTexture:Hide()
-    
-    -- Create flash animation (3 seconds total, 5 pulses of 0.6s each)
-    button.flashAnim = button.flashTexture:CreateAnimationGroup()
-    button.flashAnim:SetLooping("REPEAT")
-    button.flashAnim:SetScript("OnFinished", function(self)
-        local btn = self:GetParent():GetParent()
-        if btn then
-            ChatBar:StopFlashButton(btn)
-        end
-    end)
-    
-    local fadeOut = button.flashAnim:CreateAnimation("Alpha")
-    fadeOut:SetFromAlpha(0.5)
-    fadeOut:SetToAlpha(0)
-    fadeOut:SetDuration(0.3)
-    fadeOut:SetSmoothing("IN")
-    
-    local fadeIn = button.flashAnim:CreateAnimation("Alpha")
-    fadeIn:SetFromAlpha(0)
-    fadeIn:SetToAlpha(0.5)
-    fadeIn:SetDuration(0.3)
-    fadeIn:SetSmoothing("OUT")
-    fadeIn:SetOrder(2)
-    
+    -- Flash state tracking (animation created by Textures module)
     button.isFlashing = false
     button.flashStopTime = nil
     
@@ -654,59 +562,53 @@ end
 function ChatBar:SetupButton(button, channelData)
     local L = ns.L
     local settings = self:GetSettings()
-    local theme = ns.Themes.buttons[settings.buttonTheme] or ns.Themes.buttons.square
+    local skin = ns.Textures:GetCurrentSkin()
     
     button.channelData = channelData
-    local buttonSize = settings.buttonSize or 18
+    local buttonSize = settings.buttonSize or 24
     button:SetSize(buttonSize, buttonSize)
     
-    -- Get chat color for this channel early (needed for texture creation)
+    -- Get chat color for this channel
     local chatType = channelData.isNumbered and "CHANNEL" or channelData.channelType
     local chatColor = ChatTypeInfo[chatType]
     
-    -- Clean up old textures if theme changed or size changed
-    if ns.Textures then
-        local sizeChanged = button.currentSize and button.currentSize ~= buttonSize
-        local shapeChanged = button.currentShape and button.currentShape ~= theme.shape
+    -- Check if we need to recreate textures
+    local sizeChanged = button.textureSize and button.textureSize ~= buttonSize
+    local skinShape = skin.shape or "square"
+    local shapeChanged = button.currentShape and button.currentShape ~= skinShape
+    local currentSkinName = settings.skinName or "Default"
+    local skinChanged = button.currentSkin and button.currentSkin ~= currentSkinName
+    
+    if sizeChanged or shapeChanged or skinChanged or not button.bgTexture then
+        -- Clean up old textures
+        ns.Textures:CleanupButton(button)
         
-        if sizeChanged or shapeChanged then
-            ns.Textures:CleanupButton(button)
-        end
+        -- Create new textures using skin system
+        ns.Textures:CreateButtonLayers(button, buttonSize)
+        
+        button.currentShape = skinShape
+        button.currentSkin = currentSkinName
+    elseif button.textureSize ~= buttonSize then
+        -- Just resize existing textures
+        ns.Textures:ResizeButtonTextures(button, buttonSize)
     end
     
-    -- Create shape-specific textures using Textures module
-    if ns.Textures then
-        -- Recreate textures if shape changed, size changed, or doesn't exist
-        if not button.currentShape or button.currentShape ~= theme.shape or not button.currentSize or button.currentSize ~= buttonSize then
-            -- Clean up old textures if they exist
-            if button.currentShape or button.currentSize then
-                ns.Textures:CleanupButton(button)
-            end
-            
-            -- Create new textures for the current shape
-            if theme.shape == "round" then
-                ns.Textures:CreateRoundButton(button, theme, chatColor, buttonSize)
-            else
-                ns.Textures:CreateSquareButton(button, theme, buttonSize)
-            end
-            button.currentShape = theme.shape
-            button.currentSize = buttonSize
-        end
+    -- Apply channel color to textures
+    if chatColor then
+        ns.Textures:ApplyChannelColor(button, chatColor)
     end
     
-    -- Apply font FIRST (before SetText)
-    if theme.font then
-        local fontObject = _G[theme.font]
-        if fontObject then
-            button.text:SetFontObject(fontObject)
-        end
-    end
+    -- Apply font settings using standard WoW font (supports all locales)
+    -- settings.fontSize is updated on skin switch to skin's default
+    local fontSize = settings.fontSize or skin.fontSize or 12
+    button.text:SetFont(STANDARD_TEXT_FONT, fontSize, "")
     
-    -- Apply custom font size if configured
-    local fontSize = settings.fontSize or 12
-    local fontPath, _, fontFlags = button.text:GetFont()
-    if fontPath then
-        button.text:SetFont(fontPath, fontSize, fontFlags)
+    -- Apply text shadow based on skin
+    if skin.textShadow then
+        button.text:SetShadowColor(0, 0, 0, 1)
+        button.text:SetShadowOffset(1, -1)
+    else
+        button.text:SetShadowOffset(0, 0)
     end
     
     -- Position text based on settings
@@ -714,43 +616,41 @@ function ChatBar:SetupButton(button, channelData)
     if settings.textPosition == "above" then
         button.text:SetPoint("BOTTOM", button, "TOP", 0, 2)
     else
-        button.text:SetPoint("CENTER")
+        button.text:SetPoint("CENTER", button, "CENTER", 0, 0)
     end
     
-    -- Set text color and ensure visibility
-    button.text:SetTextColor(1, 1, 1, 1)
-    button.text:Show() -- Explicitly show the text
+    -- Set text color (use channel color for visibility)
+    if chatColor then
+        -- Use slightly brightened channel color for text
+        local brightness = 1.3
+        button.text:SetTextColor(
+            math.min(chatColor.r * brightness, 1),
+            math.min(chatColor.g * brightness, 1),
+            math.min(chatColor.b * brightness, 1),
+            1
+        )
+    else
+        button.text:SetTextColor(1, 1, 1, 1)
+    end
+    button.text:Show()
     
-    -- Set text
+    -- Set button text
     if channelData.isNumbered then
-        button.text:SetText(tostring(channelData.id)) -- Channel number
+        button.text:SetText(tostring(channelData.id))
     else
         local info = ns.ChannelInfo[channelData.channelType]
         if info and info.labelKey then
-            -- Get localized label
             local label = L[info.labelKey]
-            
-            -- Extract first character (UTF-8 aware)
             local firstChar = "?"
             if label and type(label) == "string" and #label > 0 then
-                -- Use UTF-8 aware substring for multi-byte characters (Cyrillic, etc.)
-                if string.utf8sub then
-                    firstChar = string.utf8sub(label, 1, 1):upper()
-                else
-                    -- Fallback: extract first UTF-8 character using pattern
-                    firstChar = (label:match("^([%z\1-\127\194-\244][\128-\191]*)") or "?"):upper()
-                end
+                -- Extract first UTF-8 character
+                firstChar = (label:match("^([%z\1-\127\194-\244][\128-\191]*)") or "?"):upper()
             end
-            
             button.text:SetText(firstChar)
         else
-            -- Fallback
             button.text:SetText("?")
         end
     end
-    
-    -- Apply textures/colors AFTER setting text
-    self:ApplyButtonTheme(button, theme, channelData)
     
     -- Set enabled state
     local available = channelData.isNumbered or self:IsChannelAvailable(channelData.channelType)
@@ -758,130 +658,16 @@ function ChatBar:SetupButton(button, channelData)
     button:SetAlpha(available and 1.0 or 0.5)
 end
 
--- Apply button theme
-function ChatBar:ApplyButtonTheme(button, theme, channelData)
-    -- Get chat color for this channel
-    local chatType = channelData.isNumbered and "CHANNEL" or channelData.channelType
-    local chatColor = ChatTypeInfo[chatType]
-    
-    -- Apply channel color using Textures module if available
-    if theme.useChatColors and chatColor and ns.Textures and button.normalTextureBg then
-        ns.Textures:ApplyChannelColor(button, chatColor, theme)
-    end
-    
-    if theme.useProgrammaticTextures then
-        -- Fallback for old texture system (if Textures module not loaded)
-        if button.normalTexture and not button.normalTextureBg then
-            if theme.useChatColors and chatColor then
-                if theme.fullChannelColor then
-                    -- Classic theme: 100% channel color
-                    button.normalTexture:SetColorTexture(
-                        chatColor.r,
-                        chatColor.g,
-                        chatColor.b,
-                        theme.normalColor.a
-                    )
-                else
-                    -- Other themes: blend with theme color
-                    button.normalTexture:SetColorTexture(
-                        chatColor.r * 0.5 + theme.normalColor.r * 0.5,
-                        chatColor.g * 0.5 + theme.normalColor.g * 0.5,
-                        chatColor.b * 0.5 + theme.normalColor.b * 0.5,
-                        theme.normalColor.a
-                    )
-                end
-            else
-                button.normalTexture:SetColorTexture(
-                    theme.normalColor.r,
-                    theme.normalColor.g,
-                    theme.normalColor.b,
-                    theme.normalColor.a
-                )
-            end
-        end
-        
-        if button.pushedTexture and not button.pushedTextureBg then
-            if theme.useChatColors and chatColor then
-                if theme.fullChannelColor then
-                    -- Classic theme: darker version of channel color
-                    button.pushedTexture:SetColorTexture(
-                        chatColor.r * 0.7,
-                        chatColor.g * 0.7,
-                        chatColor.b * 0.7,
-                        theme.pushedColor.a
-                    )
-                else
-                    -- Other themes: blend
-                    button.pushedTexture:SetColorTexture(
-                        chatColor.r * 0.4 + theme.pushedColor.r * 0.6,
-                        chatColor.g * 0.4 + theme.pushedColor.g * 0.6,
-                        chatColor.b * 0.4 + theme.pushedColor.b * 0.6,
-                        theme.pushedColor.a
-                    )
-                end
-            else
-                button.pushedTexture:SetColorTexture(
-                    theme.pushedColor.r,
-                    theme.pushedColor.g,
-                    theme.pushedColor.b,
-                    theme.pushedColor.a
-                )
-            end
-        end
-        
-        if button.highlightTexture and not button.highlightTextureBg then
-            button.highlightTexture:SetColorTexture(
-                theme.highlightColor.r,
-                theme.highlightColor.g,
-                theme.highlightColor.b,
-                theme.highlightColor.a
-            )
-        end
-        
-        -- Apply border using backdrop
-        if theme.borderSize and theme.borderSize > 0 then
-            button:SetBackdrop({
-                bgFile = nil,
-                edgeFile = "Interface\\Buttons\\WHITE8X8",
-                tile = false,
-                edgeSize = theme.borderSize,
-                insets = { left = 0, right = 0, top = 0, bottom = 0 }
-            })
-            
-            if theme.useChatColors and chatColor then
-                button:SetBackdropBorderColor(chatColor.r, chatColor.g, chatColor.b, theme.borderColor.a)
-            else
-                button:SetBackdropBorderColor(
-                    theme.borderColor.r,
-                    theme.borderColor.g,
-                    theme.borderColor.b,
-                    theme.borderColor.a
-                )
-            end
-        else
-            button:SetBackdrop(nil)
-        end
-    end
-    
-    -- Set text color
-    if theme.useChatColors and chatColor then
-        button.text:SetTextColor(chatColor.r, chatColor.g, chatColor.b, 1)
-    else
-        button.text:SetTextColor(1, 1, 1, 1)
-    end
-end
-
 -- Layout buttons based on orientation
 function ChatBar:LayoutButtons()
     if #activeButtons == 0 then return end
     
     local settings = self:GetSettings()
-    local theme = ns.Themes.buttons[settings.buttonTheme] or ns.Themes.buttons.square
-    local barTheme = ns.Themes.bars[settings.barTheme] or ns.Themes.bars.classic
+    local skin = ns.Textures:GetCurrentSkin()
     
-    local padding = barTheme.padding
-    local spacing = theme.spacing
-    local buttonSize = settings.buttonSize or 18
+    local padding = skin.barPadding or 6
+    local spacing = skin.buttonSpacing or 1
+    local buttonSize = settings.buttonSize or 24
     
     if settings.orientation == "horizontal" then
         -- Horizontal layout
@@ -989,9 +775,24 @@ function ChatBar:ToggleBar()
     print(string.format("%s: %s %s", L.ADDON_NAME, L.MSG_BAR_TOGGLED, settings.barVisible and L.MSG_BAR_SHOWN or L.MSG_BAR_HIDDEN))
 end
 
--- Refresh the addon (reapply themes, rebuild buttons)
+-- Refresh all button textures (for skin hot-swap)
+function ChatBar:RefreshAllButtons()
+    for _, button in pairs(activeButtons) do
+        ns.Textures:RefreshButtonTextures(button)
+        -- Reapply channel color
+        if button.channelData then
+            local chatType = button.channelData.isNumbered and "CHANNEL" or button.channelData.channelType
+            local chatColor = ChatTypeInfo[chatType]
+            if chatColor then
+                ns.Textures:ApplyChannelColor(button, chatColor)
+            end
+        end
+    end
+end
+
+-- Refresh the addon (reapply skin, rebuild buttons)
 function ChatBar:Refresh()
-    self:ApplyBarTheme()
+    self:RefreshBarTextures()
     self:UpdateButtons()
     self:PositionBar()
 end
@@ -1030,11 +831,25 @@ function ChatBar:HandleSlashCommand(msg)
         if profileMode == "character" then
             ChatBarCharDB = self:CopyTable(ns.Defaults)
             ns.charDB = ChatBarCharDB
+            -- Apply skin's default fontSize after reset
+            local skin = ns.SkinRegistry[ns.charDB.skinName or "Default"]
+            if skin and skin.fontSize then
+                ns.charDB.fontSize = skin.fontSize
+            end
         else
             ChatBarDB = self:CopyTable(ns.Defaults)
             ns.db = ChatBarDB
+            -- Apply skin's default fontSize after reset
+            local skin = ns.SkinRegistry[ns.db.skinName or "Default"]
+            if skin and skin.fontSize then
+                ns.db.fontSize = skin.fontSize
+            end
         end
         self:Refresh()
+        -- Refresh config UI to show new values
+        if ns.Config and ns.Config.panel then
+            ns.Config:RefreshPanel(ns.Config.panel)
+        end
         print(string.format("%s: %s", L.ADDON_NAME, L.MSG_RESET_COMPLETE))
     elseif msg == "help" or msg == "?" then
         print(string.format("%s v%s - %s", L.ADDON_NAME, self.VERSION, L.CMD_HELP_HEADER))
@@ -1059,16 +874,7 @@ function ChatBar:SwitchToChannel(channelType)
     if not info then return end
     
     -- Check if channel is available
-    local channels = self:GetAvailableChannels()
-    local found = false
-    for _, channel in ipairs(channels) do
-        if channel.channelType == channelType then
-            found = true
-            break
-        end
-    end
-    
-    if not found then
+    if not self:IsChannelAvailable(channelType) then
         print(string.format("%s: Channel %s not available", L.ADDON_NAME, channelType))
         return
     end
@@ -1101,6 +907,11 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         if not ChatBarDB then
             ChatBarDB = ChatBar:CopyTable(ns.Defaults)
             ns.db = ChatBarDB
+            -- Apply skin's default fontSize on first install
+            local skin = ns.SkinRegistry[ns.db.skinName or "Default"]
+            if skin and skin.fontSize then
+                ns.db.fontSize = skin.fontSize
+            end
         else
             -- Merge with defaults for missing keys
             ChatBar:MergeDefaults(ns.db, ns.Defaults)
@@ -1110,6 +921,11 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         if not ChatBarCharDB then
             ChatBarCharDB = ChatBar:CopyTable(ns.Defaults)
             ns.charDB = ChatBarCharDB
+            -- Apply skin's default fontSize on first install
+            local skin = ns.SkinRegistry[ns.charDB.skinName or "Default"]
+            if skin and skin.fontSize then
+                ns.charDB.fontSize = skin.fontSize
+            end
         else
             ChatBar:MergeDefaults(ns.charDB, ns.Defaults)
         end
