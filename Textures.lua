@@ -421,12 +421,19 @@ end
 -- Clean up button textures
 function Textures:CleanupButton(button)
     if not button then return end
-    
+
+    -- Stop and clear flash animation first (it's attached to glowTexture)
+    if button.flashAnim then
+        button.flashAnim:Stop()
+        button.flashAnim = nil
+    end
+    button.isFlashing = false
+
     local texturesToClean = {
         "bgTexture", "centerTexture", "borderTexture",
         "highlightTexture", "pushedTexture", "glowTexture", "maskTexture"
     }
-    
+
     for _, texName in ipairs(texturesToClean) do
         if button[texName] then
             button[texName]:Hide()
@@ -434,10 +441,10 @@ function Textures:CleanupButton(button)
             button[texName] = nil
         end
     end
-    
+
     -- Clear channel color reference
     button.channelColor = nil
-    
+
     -- Clear legacy texture references
     button.normalTextureBg = nil
     button.pushedTextureBg = nil
