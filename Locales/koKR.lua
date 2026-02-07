@@ -1,0 +1,77 @@
+-- ChatBar: Korean Localization
+
+local addonName, ns = ...
+if GetLocale() ~= "koKR" then return end
+
+local L = ns.L
+
+L.ADDON_LOADED = "불러옴"
+L.ADDON_SLASH_HELP = "|cffff8800/chatbar|r를 입력하면 설정을 열 수 있습니다."
+
+L.CHAT_SAY = "일반"
+L.CHAT_YELL = "외침"
+L.CHAT_EMOTE = "감정 표현"
+L.CHAT_WHISPER = "귓속말"
+L.CHAT_BN_WHISPER = "배틀넷"
+L.CHAT_PARTY = "파티"
+L.CHAT_RAID = "공격대"
+L.CHAT_RAID_WARNING = "공격대 경보"
+L.CHAT_INSTANCE = "인스턴스"
+L.CHAT_GUILD = "길드"
+L.CHAT_OFFICER = "오피서"
+L.CHAT_BATTLEGROUND = "전장"
+
+L.SETTINGS_TITLE = "ChatBar 설정"
+L.VERSION = "버전"
+L.PROFILE_MODE = "프로필 모드:"
+L.PROFILE_ACCOUNT = "계정 공용 (모든 캐릭터)"
+L.PROFILE_CHARACTER = "캐릭터별 설정"
+L.SKIN_SELECTION = "스킨:"
+L.SKIN_AUTHOR = "제작"
+L.ORIENTATION = "방향:"
+L.ORIENTATION_HORIZONTAL = "가로"
+L.ORIENTATION_VERTICAL = "세로"
+L.ENABLED_CHANNELS = "활성화된 채널:"
+L.NUMBERED_CHANNELS = "번호 채널:"
+L.SHOW_NUMBERED_CHANNELS = "번호 채널 표시 (일반, 거래 등)"
+L.FLASH_NOTIFICATIONS = "알림:"
+L.FLASH_NOTIFICATIONS_DESC = "새 메시지가 있을 때 버튼 깜빡임"
+L.FONT_SIZE = "글꼴 크기:"
+L.BUTTON_SIZE = "버튼 크기:"
+L.TEXT_POSITION = "텍스트 위치:"
+L.TEXT_POSITION_INSIDE = "버튼 안"
+L.TEXT_POSITION_ABOVE = "버튼 위"
+
+-- Override keybinding globals for Korean
+_G["BINDING_HEADER_CHATBAR"] = "ChatBar"
+_G["BINDING_NAME_CHATBAR_TOGGLE"] = "ChatBar 표시/숨김"
+_G["BINDING_NAME_CHATBAR_SWITCH_SAY"] = "일반으로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_YELL"] = "외침으로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_EMOTE"] = "감정 표현으로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_WHISPER"] = "귓속말로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_BN_WHISPER"] = "배틀넷 귓속말로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_PARTY"] = "파티로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_RAID"] = "공격대로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_GUILD"] = "길드로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_OFFICER"] = "오피서로 전환"
+_G["BINDING_NAME_CHATBAR_SWITCH_BATTLEGROUND"] = "전장으로 전환"
+
+L.MSG_BAR_SHOWN = "바가 표시되었습니다."
+L.MSG_BAR_HIDDEN = "바가 숨겨졌습니다."
+L.MSG_BAR_TOGGLED = "바"
+L.MSG_RESET = "기본 설정으로 초기화 중..."
+L.MSG_RESET_COMPLETE = "설정이 초기화되었습니다!"
+L.MSG_STILL_LOADING = "애드온이 아직 로딩 중입니다. 잠시 후 다시 시도하세요."
+L.MSG_SETTINGS_LOADING = "설정 패널이 아직 로딩 중입니다. 잠시 후 다시 시도하세요."
+
+L.TOOLTIP_CHANNEL = "채널"
+L.TOOLTIP_CHAT = "채팅"
+L.TOOLTIP_CLICK_SWITCH = "클릭하여 채널 전환"
+
+L.CMD_HELP_HEADER = "명령어:"
+L.CMD_OPEN_SETTINGS = "설정 열기"
+L.CMD_TOGGLE = "바 표시/숨김 전환"
+L.CMD_SHOW = "바 표시"
+L.CMD_HIDE = "바 숨김"
+L.CMD_RESET = "기본 설정으로 초기화"
+L.CMD_HELP = "도움말 표시"
