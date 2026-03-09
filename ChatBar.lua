@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Constants
-ChatBar.VERSION = "2.1.1"
+ChatBar.VERSION = "2.2.0"
 
 -- Default settings
 ns.Defaults = {
@@ -131,7 +131,7 @@ function ChatBar:CreateBarFrame()
     ns.Textures:LoadSkin(settings.skinName)
     
     barFrame = CreateFrame("Frame", "ChatBarFrame", UIParent)
-    barFrame:SetFrameStrata("DIALOG")
+    barFrame:SetFrameStrata("MEDIUM")
     barFrame:SetSize(100, 40) -- Will be resized based on buttons
     
     -- Create bar textures using skin system
@@ -703,16 +703,27 @@ function ChatBar:OnButtonClick(button, mouseButton)
     -- Stop flashing when clicked
     self:StopFlashButton(button)
     
+    -- Preserve current message text if chat is open
+    local preservedText = ""
+    local editBox = currentChatFrame.editBox
+    if editBox and editBox:IsShown() then
+        preservedText = editBox:GetText() or ""
+    end
+    
     local channelData = button.channelData
     
     if channelData.isNumbered then
         -- Numbered channel - open chat first, then set channel
-        ChatFrame_OpenChat("", currentChatFrame)
+        ChatFrame_OpenChat(preservedText, currentChatFrame)
         local editBox = currentChatFrame.editBox
         if editBox then
             editBox:SetAttribute("chatType", "CHANNEL")
             editBox:SetAttribute("channelTarget", channelData.id)
-            ChatEdit_UpdateHeader(editBox)
+            editBox:UpdateHeader()
+            -- Restore cursor position to end of preserved text
+            if preservedText ~= "" then
+                editBox:SetCursorPosition(#preservedText)
+            end
         end
     else
         -- Standard channel
@@ -721,14 +732,19 @@ function ChatBar:OnButtonClick(button, mouseButton)
             if info.requiresTarget and (channelData.channelType == "WHISPER" or channelData.channelType == "BN_WHISPER") then
                 -- For whisper, open chat with /w command
                 local cmd = channelData.channelType == "BN_WHISPER" and "/bw " or "/w "
-                ChatFrameUtil.OpenChat(cmd, currentChatFrame)
+                -- Append preserved text after the command
+                ChatFrameUtil.OpenChat(cmd .. preservedText, currentChatFrame)
                 return
             else
                 -- Open chat and set channel type using proper API
-                local editBox = ChatFrameUtil.OpenChat("", currentChatFrame)
+                local editBox = ChatFrameUtil.OpenChat(preservedText, currentChatFrame)
                 if editBox then
                     editBox:SetChatType(info.command)
                     editBox:UpdateHeader()
+                    -- Restore cursor position to end of preserved text
+                    if preservedText ~= "" then
+                        editBox:SetCursorPosition(#preservedText)
+                    end
                 end
             end
         end
@@ -883,11 +899,11 @@ function ChatBar:SwitchToChannel(channelType)
     local editBox = ChatEdit_ChooseBoxForSend()
     if editBox then
         ChatEdit_SetLastActiveWindow(editBox)
-        ChatEdit_UpdateHeader(editBox)
+        editBox:UpdateHeader()
         
         local chatType = info.command
         editBox:SetAttribute("chatType", chatType)
-        ChatEdit_UpdateHeader(editBox)
+        editBox:UpdateHeader()
         
         if not editBox:IsShown() then
             ChatEdit_ActivateChat(editBox)
@@ -949,3 +965,16 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
+
+-- WoW keybindings execute in global scope and cannot access addon namespace directly
+function ChatBar_ToggleBar()
+    if ns and ns.ChatBar then
+        ns.ChatBar:ToggleBar()
+    end
+end
+
+function ChatBar_SwitchToChannel(channelType)
+    if ns and ns.ChatBar then
+        ns.ChatBar:SwitchToChannel(channelType)
+    end
+end

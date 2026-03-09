@@ -2,7 +2,7 @@
 ## Title: ChatBar
 ## Notes: Quick chat channel switcher with customizable button bar and skin system
 ## Author: Artsem Burlai
-## Version: 2.1.1
+## Version: 2.2.0
 ## IconTexture: Interface\AddOns\ChatBar\ChatBar
 ## Category-enUS: Chat
 ## Category-deDE: Chat
