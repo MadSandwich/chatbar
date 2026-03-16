@@ -7,6 +7,13 @@ local addonName, ns = ...
 local ChatBar = {}
 ns.ChatBar = ChatBar
 
+-- Version constant (reads from TOC metadata)
+ChatBar.VERSION = GetAddOnMetadata("ChatBar", "Version") or "2"
+-- Handle build tool placeholder
+if ChatBar.VERSION == "@project-version@" then
+    ChatBar.VERSION = "2"
+end
+
 -- Default settings
 ns.Defaults = {
     version = 2,

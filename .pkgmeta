@@ -9,5 +9,4 @@ ignore:
   - README.md
   - .gitignore
 
-# Enable uploading to GitHub releases
 enable-nolib-creation: no

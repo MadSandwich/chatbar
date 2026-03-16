@@ -102,7 +102,7 @@ Contributions welcome via:
 
 ## Release Process (For Maintainers)
 
-ChatBar uses automated publishing to CurseForge and GitHub Releases via GitHub Actions.
+ChatBar uses automated publishing to CurseForge via GitHub Actions.
 
 ### Creating a New Release
 
@@ -118,7 +118,6 @@ ChatBar uses automated publishing to CurseForge and GitHub Releases via GitHub A
 4. **Monitor the workflow** at https://github.com/YOUR-USERNAME/chatbar/actions
 5. **Verify the release**:
    - Check CurseForge project page for the new version
-   - Check GitHub Releases page for the auto-created release with zip file
    - Review the auto-generated changelog from commit messages
 
 ### Version Numbering
@@ -136,7 +135,7 @@ The packager automatically generates changelogs from Git commits between tags. W
 
 ### What Gets Published
 
-The following files are included in the package:
+The following files are included in the CurseForge package:
 - All `.lua` and `.xml` files
 - `ChatBar.toc` (with version automatically updated from tag)
 - `Bindings.xml`
