@@ -7,9 +7,6 @@ local addonName, ns = ...
 local ChatBar = {}
 ns.ChatBar = ChatBar
 
--- Constants
-ChatBar.VERSION = "2.2.0"
-
 -- Default settings
 ns.Defaults = {
     version = 2,
@@ -953,14 +950,6 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         if ns.Config then
             ns.Config:Initialize()
         end
-        
-        -- Print loaded message with localized string
-        print(string.format("%s v%s %s. %s", 
-            L.ADDON_NAME,
-            ChatBar.VERSION,
-            L.ADDON_LOADED,
-            L.ADDON_SLASH_HELP
-        ))
         
         self:UnregisterEvent("ADDON_LOADED")
     end

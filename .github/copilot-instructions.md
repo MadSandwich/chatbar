@@ -239,7 +239,7 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 4. Hook control's OnClick/OnValueChanged to update `ChatBar:GetSettings()`
 
 ## Version Information
-- **WoW Version:** 12.0.0+ (Midnight expansion)
+- **WoW Version:** 12.0.5+ (Midnight expansion)
 - **Lua Version:** Lua 5.1 (WoW's embedded version)
-- **Addon Version:** 2.2.0
-- **API Level:** 120000, 120001 (Retail only, no Classic support)
+- **Addon Version:** 2.2.1
+- **API Level:** 120000, 120001, 120005 (Retail only, no Classic support)

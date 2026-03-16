@@ -100,6 +100,54 @@ Contributions welcome via:
 - Code improvements
 - Documentation updates
 
+## Release Process (For Maintainers)
+
+ChatBar uses automated publishing to CurseForge and GitHub Releases via GitHub Actions.
+
+### Creating a New Release
+
+1. **Ensure all changes are committed** and pushed to the main branch
+2. **Create an annotated Git tag** with the version number:
+   ```bash
+   git tag -a v2.3.0 -m "Release 2.3.0"
+   ```
+3. **Push the tag** to trigger the release workflow:
+   ```bash
+   git push origin v2.3.0
+   ```
+4. **Monitor the workflow** at https://github.com/YOUR-USERNAME/chatbar/actions
+5. **Verify the release**:
+   - Check CurseForge project page for the new version
+   - Check GitHub Releases page for the auto-created release with zip file
+   - Review the auto-generated changelog from commit messages
+
+### Version Numbering
+
+- **Stable releases**: `v2.3.0`, `v2.4.0`, `v3.0.0`
+- **Beta releases**: `v2.3.0-beta`, `v2.3.0-beta.2` (marked as beta on CurseForge)
+- **Alpha releases**: `v2.3.0-alpha`, `v3.0.0-alpha.1` (marked as alpha on CurseForge)
+
+### Changelog Best Practices
+
+The packager automatically generates changelogs from Git commits between tags. Write commit messages for end users:
+
+- ✅ Good: "Fix memory leak in button pooling", "Add Korean translation", "Update TOC to 11.0.5"
+- ❌ Avoid: "fix", "wip", "updates", "misc changes"
+
+### What Gets Published
+
+The following files are included in the package:
+- All `.lua` and `.xml` files
+- `ChatBar.toc` (with version automatically updated from tag)
+- `Bindings.xml`
+- All files in `Locales/` and `Skins/` directories
+
+The following are excluded:
+- `.github/` directory (except workflow runs)
+- `.vscode/` directory
+- `README.md`
+- `.gitignore`, `.pkgmeta`
+
 ## License
 
 This addon is free software provided as-is for World of Warcraft players. Feel free to modify and distribute with attribution.
