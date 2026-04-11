@@ -281,6 +281,22 @@ function Config:CreateSettingsPanel()
     
     content.flashCheckbox = flashCheckbox
     
+    yOffset = yOffset - 30
+    
+    -- Hide Loaded Message Section
+    local hideLoadedCheckbox = CreateFrame("CheckButton", "ChatBarHideLoadedMessage", content, "UICheckButtonTemplate")
+    hideLoadedCheckbox:SetPoint("TOPLEFT", 16, yOffset)
+    hideLoadedCheckbox.text = hideLoadedCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    hideLoadedCheckbox.text:SetPoint("LEFT", hideLoadedCheckbox, "RIGHT", 0, 0)
+    hideLoadedCheckbox.text:SetText(L.HIDE_LOADED_MESSAGE or "Hide loaded message in chat")
+    
+    hideLoadedCheckbox:SetScript("OnClick", function(self)
+        local settings = ChatBar:GetSettings()
+        settings.hideLoadedMessage = self:GetChecked()
+    end)
+    
+    content.hideLoadedCheckbox = hideLoadedCheckbox
+    
     yOffset = yOffset - 40
     
     -- Channel Configuration Section
@@ -459,6 +475,11 @@ function Config:RefreshPanel(panel)
     -- Flash notifications
     if content.flashCheckbox then
         content.flashCheckbox:SetChecked(settings.flashNotifications ~= false)
+    end
+    
+    -- Hide loaded message
+    if content.hideLoadedCheckbox then
+        content.hideLoadedCheckbox:SetChecked(settings.hideLoadedMessage ~= false)
     end
 end
 

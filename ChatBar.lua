@@ -25,6 +25,7 @@ ns.Defaults = {
     keybind = nil,
     flashNotifications = true, -- Flash buttons on new messages
     flashDuration = 3, -- Duration of flash notifications in seconds
+    hideLoadedMessage = true, -- Hide addon loaded message in chat
     
     -- Channel configuration
     channels = {
@@ -952,6 +953,12 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         -- Initialize Config
         if ns.Config then
             ns.Config:Initialize()
+        end
+        
+        -- Print loaded message if not hidden
+        local settings = ChatBar:GetSettings()
+        if not settings.hideLoadedMessage then
+            print(string.format("%s v%s %s", L.ADDON_NAME, ChatBar.VERSION, L.ADDON_LOADED))
         end
         
         self:UnregisterEvent("ADDON_LOADED")
