@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "2.2.3"
+ChatBar.VERSION = "2.2.4"
 
 -- Default settings
 ns.Defaults = {
@@ -81,6 +81,32 @@ local buttonPool = {}
 local activeButtons = {}
 local currentChatFrame = nil
 local barFrame = nil
+
+local function OpenChatWithFallback(text, chatFrame)
+    if ChatFrameUtil and ChatFrameUtil.OpenChat then
+        local editBox = ChatFrameUtil.OpenChat(text or "", chatFrame)
+        if editBox then
+            return editBox
+        end
+    end
+
+    if ChatFrame_OpenChat then
+        ChatFrame_OpenChat(text or "", chatFrame)
+        return chatFrame and chatFrame.editBox
+    end
+
+    return chatFrame and chatFrame.editBox
+end
+
+local function RefreshEditBoxHeader(editBox)
+    if not editBox then return end
+
+    if editBox.UpdateHeader then
+        editBox:UpdateHeader()
+    elseif ChatEdit_UpdateHeader then
+        ChatEdit_UpdateHeader(editBox)
+    end
+end
 
 -- Get active settings based on profile mode
 function ChatBar:GetSettings()
@@ -715,12 +741,21 @@ function ChatBar:OnButtonClick(button, mouseButton)
     
     if channelData.isNumbered then
         -- Numbered channel - open chat first, then set channel
-        ChatFrame_OpenChat(preservedText, currentChatFrame)
-        local editBox = currentChatFrame.editBox
+        local editBox = OpenChatWithFallback(preservedText, currentChatFrame)
         if editBox then
-            editBox:SetAttribute("chatType", "CHANNEL")
-            editBox:SetAttribute("channelTarget", channelData.id)
-            editBox:UpdateHeader()
+            if editBox.SetChatType then
+                editBox:SetChatType("CHANNEL")
+            elseif editBox.SetAttribute then
+                editBox:SetAttribute("chatType", "CHANNEL")
+            end
+
+            if editBox.SetChannelTarget then
+                editBox:SetChannelTarget(channelData.id)
+            elseif editBox.SetAttribute then
+                editBox:SetAttribute("channelTarget", channelData.id)
+            end
+
+            RefreshEditBoxHeader(editBox)
             -- Restore cursor position to end of preserved text
             if preservedText ~= "" then
                 editBox:SetCursorPosition(#preservedText)
@@ -734,14 +769,19 @@ function ChatBar:OnButtonClick(button, mouseButton)
                 -- For whisper, open chat with /w command
                 local cmd = channelData.channelType == "BN_WHISPER" and "/bw " or "/w "
                 -- Append preserved text after the command
-                ChatFrameUtil.OpenChat(cmd .. preservedText, currentChatFrame)
+                OpenChatWithFallback(cmd .. preservedText, currentChatFrame)
                 return
             else
                 -- Open chat and set channel type using proper API
-                local editBox = ChatFrameUtil.OpenChat(preservedText, currentChatFrame)
+                local editBox = OpenChatWithFallback(preservedText, currentChatFrame)
                 if editBox then
-                    editBox:SetChatType(info.command)
-                    editBox:UpdateHeader()
+                    if editBox.SetChatType then
+                        editBox:SetChatType(info.command)
+                    elseif editBox.SetAttribute then
+                        editBox:SetAttribute("chatType", info.command)
+                    end
+
+                    RefreshEditBoxHeader(editBox)
                     -- Restore cursor position to end of preserved text
                     if preservedText ~= "" then
                         editBox:SetCursorPosition(#preservedText)
@@ -900,11 +940,16 @@ function ChatBar:SwitchToChannel(channelType)
     local editBox = ChatEdit_ChooseBoxForSend()
     if editBox then
         ChatEdit_SetLastActiveWindow(editBox)
-        editBox:UpdateHeader()
+        RefreshEditBoxHeader(editBox)
         
         local chatType = info.command
-        editBox:SetAttribute("chatType", chatType)
-        editBox:UpdateHeader()
+        if editBox.SetChatType then
+            editBox:SetChatType(chatType)
+        elseif editBox.SetAttribute then
+            editBox:SetAttribute("chatType", chatType)
+        end
+
+        RefreshEditBoxHeader(editBox)
         
         if not editBox:IsShown() then
             ChatEdit_ActivateChat(editBox)

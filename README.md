@@ -2,6 +2,10 @@
 
 A lightweight, customizable chat channel switcher addon for World of Warcraft that displays quick-access buttons above your active chat frame.
 
+## Release Notes
+
+Release notes are published in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
 ## Usage
 
 ### Slash Commands

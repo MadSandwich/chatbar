@@ -410,6 +410,10 @@ function Config:CreateSettingsPanel()
         Settings.RegisterAddOnCategory(category)
         panel.category = category
         self.settingsCategory = category
+    elseif InterfaceOptions_AddCategory then
+        -- Legacy fallback for clients where Settings API registration differs.
+        InterfaceOptions_AddCategory(panel)
+        self.settingsCategory = panel
     end
     
     return panel
@@ -491,8 +495,11 @@ function Config:OpenSettings()
         return
     end
     
-    if Settings and Settings.OpenToCategory then
+    if Settings and Settings.OpenToCategory and self.settingsCategory.GetID then
         Settings.OpenToCategory(self.settingsCategory:GetID())
+    elseif InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(self.panel)
+        InterfaceOptionsFrame_OpenToCategory(self.panel)
     end
 end
 
