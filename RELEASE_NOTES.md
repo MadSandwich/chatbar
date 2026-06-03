@@ -1,6 +1,6 @@
 # ChatBar Release Notes
 
-## 2.2.4 (WoW 12.0.7 Compatibility)
+## 2.2.5 (WoW 12.0.7 Compatibility)
 
 - Added Retail interface compatibility for 12.0.7 in ChatBar.toc.
 - Hardened chat opening flow with API fallbacks for channel switching.
