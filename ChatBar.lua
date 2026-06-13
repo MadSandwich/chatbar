@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "2.2.5"
+ChatBar.VERSION = "2.3.0"
 
 -- Default settings
 ns.Defaults = {
@@ -53,7 +53,8 @@ ns.Defaults = {
     -- Numbered channels (General, Trade, LocalDefense, etc.)
     numberedChannels = {
         enabled = true,
-        filters = {} -- Empty means show all, otherwise specific channel names
+        filters = {}, -- Kept for saved-variable backward compatibility; no longer used
+        excluded = {} -- Blacklist: excluded[channelName] = true hides that channel
     }
 }
 
@@ -465,29 +466,20 @@ function ChatBar:GetNumberedChannels()
     end
     
     local channelList = { GetChannelList() }
+    local excluded = settings.numberedChannels.excluded or {}
     
     for i = 1, #channelList, 3 do
-        local id = channelList[i]
+        local id   = channelList[i]
         local name = channelList[i + 1]
         
-        if id and name then
-            -- Apply filters if any
-            local filters = settings.numberedChannels.filters
-            local showChannel = true
-            
-            if filters and next(filters) then
-                showChannel = filters[name] == true
-            end
-            
-            if showChannel then
-                table.insert(channels, {
-                    id = id,
-                    name = name,
-                    channelType = "CHANNEL",
-                    order = 100 + id,
-                    isNumbered = true
-                })
-            end
+        if id and name and not excluded[name] then
+            table.insert(channels, {
+                id = id,
+                name = name,
+                channelType = "CHANNEL",
+                order = 100 + id,
+                isNumbered = true
+            })
         end
     end
     

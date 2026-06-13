@@ -10,6 +10,20 @@ ns.Config = Config
 -- Local reference to ChatBar
 local ChatBar
 
+-- Resetter called by the frame pool when a numbered-channel filter checkbox is released.
+local function NumberedFilterCheckboxResetter(pool, cb)
+    cb:Hide()
+    cb:ClearAllPoints()
+    cb:SetChecked(false)
+    cb:SetScript("OnClick", nil)
+    cb:SetScript("OnEnter", nil)
+    cb:SetScript("OnLeave", nil)
+    if cb.text then
+        cb.text:SetText("")
+        cb.text:SetTextColor(1, 1, 1)
+    end
+end
+
 -- Initialize config (called from ChatBar after ADDON_LOADED)
 function Config:Initialize()
     ChatBar = ns.ChatBar
@@ -363,15 +377,37 @@ function Config:CreateSettingsPanel()
         local settings = ChatBar:GetSettings()
         settings.numberedChannels.enabled = self:GetChecked()
         ChatBar:UpdateButtons()
+        Config:BuildNumberedChannelCheckboxes(content)
     end)
     
     content.numberedEnabled = numberedEnabled
     
-    -- Lock Position Section
-    yOffset = yOffset - 60
+    -- Sub-label for the per-channel filter list
+    local numberedFilterLabel = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    numberedFilterLabel:SetPoint("TOPLEFT", numberedEnabled, "BOTTOMLEFT", 20, -10)
+    numberedFilterLabel:SetText(L.NUMBERED_CHANNEL_FILTERS or "Filter individual channels:")
+    content.numberedFilterLabel = numberedFilterLabel
     
+    -- Container for the dynamic per-channel filter checkboxes
+    local numberedFilterSection = CreateFrame("Frame", nil, content)
+    numberedFilterSection:SetPoint("TOPLEFT", numberedFilterLabel, "BOTTOMLEFT", 0, -4)
+    numberedFilterSection:SetSize(560, 0)
+    content.numberedFilterSection = numberedFilterSection
+    
+    -- Frame pool for the dynamic filter checkboxes (avoids frame accumulation on rebuild)
+    content.numberedFilterPool = CreateFramePool("CheckButton", numberedFilterSection, "UICheckButtonTemplate", NumberedFilterCheckboxResetter)
+    
+    -- Placeholder shown when no numbered channels are currently joined
+    local numberedNoneLabel = numberedFilterSection:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+    numberedNoneLabel:SetPoint("TOPLEFT", 4, -4)
+    numberedNoneLabel:SetText(L.NUMBERED_CHANNEL_NONE or "No numbered channels currently joined.")
+    numberedNoneLabel:Hide()
+    content.numberedNoneLabel = numberedNoneLabel
+    
+    -- Lock Position Section — anchored relative to the dynamic filter section so it
+    -- repositions automatically when the filter list grows or shrinks.
     local lockLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    lockLabel:SetPoint("TOPLEFT", 16, yOffset)
+    lockLabel:SetPoint("TOPLEFT", numberedFilterSection, "BOTTOMLEFT", -4, -20)
     lockLabel:SetText("Position:")
     
     local lockPosition = CreateFrame("CheckButton", "ChatBarLockPosition", content, "UICheckButtonTemplate")
@@ -403,6 +439,15 @@ function Config:CreateSettingsPanel()
     end)
     
     self.panel = panel
+    
+    -- Live-refresh the per-channel filter list whenever joined channels change.
+    local channelUpdateListener = CreateFrame("Frame")
+    channelUpdateListener:RegisterEvent("CHANNEL_UI_UPDATE")
+    channelUpdateListener:SetScript("OnEvent", function()
+        if panel:IsVisible() then
+            Config:BuildNumberedChannelCheckboxes(panel.content)
+        end
+    end)
     
     -- Add to interface options using modern Settings API (WoW 12.0.1+)
     if Settings and Settings.RegisterCanvasLayoutCategory then
@@ -455,6 +500,9 @@ function Config:RefreshPanel(panel)
     -- Numbered channels
     content.numberedEnabled:SetChecked(settings.numberedChannels.enabled)
     
+    -- Rebuild per-channel filter checkboxes to match current profile and channel list.
+    self:BuildNumberedChannelCheckboxes(content)
+    
     -- Lock position
     content.lockPosition:SetChecked(settings.lockPosition)
     
@@ -485,6 +533,101 @@ function Config:RefreshPanel(panel)
     if content.hideLoadedCheckbox then
         content.hideLoadedCheckbox:SetChecked(settings.hideLoadedMessage ~= false)
     end
+end
+
+-- Build (or rebuild) per-channel filter checkboxes under the numbered-channels master toggle.
+-- Safe to call multiple times; uses a frame pool to avoid accumulation.
+function Config:BuildNumberedChannelCheckboxes(content)
+    local L       = ns.L
+    local settings = ChatBar:GetSettings()
+    local section = content.numberedFilterSection
+    local pool    = content.numberedFilterPool
+
+    pool:ReleaseAll()
+
+    local masterEnabled = settings.numberedChannels.enabled
+
+    -- Collapse the filter section while the master toggle is off.
+    if not masterEnabled then
+        if content.numberedFilterLabel then content.numberedFilterLabel:Hide() end
+        section:Hide()
+        section:SetHeight(0)
+        return
+    end
+
+    if content.numberedFilterLabel then content.numberedFilterLabel:Show() end
+    section:Show()
+
+    local channelList = { GetChannelList() }
+    local channels = {}
+    for i = 1, #channelList, 3 do
+        local id       = channelList[i]
+        local name     = channelList[i + 1]
+        local disabled = channelList[i + 2]
+        if id and name then
+            table.insert(channels, { id = id, name = name, disabled = disabled })
+        end
+    end
+
+    content.numberedNoneLabel:SetShown(#channels == 0)
+
+    if #channels == 0 then
+        section:SetHeight(28)
+        return
+    end
+
+    local excluded = settings.numberedChannels.excluded or {}
+    local column = 0
+    local row    = 0
+
+    for _, ch in ipairs(channels) do
+        local cb = pool:Acquire()
+        cb:SetPoint("TOPLEFT", column * 260, -(row * 28))
+        cb:Show()
+        cb:SetChecked(not excluded[ch.name])
+
+        -- Create the label FontString the first time this pool frame is used.
+        if not cb.text then
+            cb.text = cb:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+            cb.text:SetPoint("LEFT", cb, "RIGHT", 0, 0)
+        end
+        cb.text:SetText(ch.name)
+
+        if ch.disabled then
+            cb.text:SetTextColor(0.5, 0.5, 0.5)
+            cb:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(L.NUMBERED_CHANNEL_INACTIVE or "Currently inactive")
+                GameTooltip:Show()
+            end)
+            cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        else
+            cb.text:SetTextColor(1, 1, 1)
+        end
+
+        local channelName = ch.name
+        cb:SetScript("OnClick", function(self)
+            local s = ChatBar:GetSettings()
+            if not s.numberedChannels.excluded then
+                s.numberedChannels.excluded = {}
+            end
+            if self:GetChecked() then
+                s.numberedChannels.excluded[channelName] = nil
+            else
+                s.numberedChannels.excluded[channelName] = true
+            end
+            ChatBar:UpdateButtons()
+        end)
+
+        column = column + 1
+        if column >= 2 then
+            column = 0
+            row    = row + 1
+        end
+    end
+
+    local totalRows = row + (column > 0 and 1 or 0)
+    section:SetHeight(math.max(28, totalRows * 28))
 end
 
 -- Open settings panel
