@@ -54,6 +54,7 @@ L.BUTTON_SIZE = "Button Size:"
 L.TEXT_POSITION = "Text Position:"
 L.TEXT_POSITION_INSIDE = "Inside buttons"
 L.TEXT_POSITION_ABOVE = "Above buttons"
+L.CHANNEL_HISTORY_DESC = "Enable channel history cycling (assign keys in Key Bindings)"
 
 -- Set globals for keybinding system (must be in global namespace)
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"
@@ -68,6 +69,8 @@ _G["BINDING_NAME_CHATBAR_SWITCH_RAID"] = "Switch to Raid"
 _G["BINDING_NAME_CHATBAR_SWITCH_GUILD"] = "Switch to Guild"
 _G["BINDING_NAME_CHATBAR_SWITCH_OFFICER"] = "Switch to Officer"
 _G["BINDING_NAME_CHATBAR_SWITCH_BATTLEGROUND"] = "Switch to Battleground"
+_G["BINDING_NAME_CHATBAR_CYCLE_PREV"] = "Cycle to previous channel"
+_G["BINDING_NAME_CHATBAR_CYCLE_NEXT"] = "Cycle to next channel"
 
 -- Messages
 L.MSG_BAR_SHOWN = "Bar shown"
@@ -77,6 +80,7 @@ L.MSG_RESET = "Resetting to defaults..."
 L.MSG_RESET_COMPLETE = "Settings reset!"
 L.MSG_STILL_LOADING = "Addon is still loading, please try again in a moment."
 L.MSG_SETTINGS_LOADING = "Settings panel is still loading, please try again in a moment."
+L.MSG_HISTORY_EMPTY = "No channel history yet. Switch channels first."
 
 -- Tooltips
 L.TOOLTIP_CHANNEL = "Channel"

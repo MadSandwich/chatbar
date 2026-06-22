@@ -8,7 +8,10 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "2.3.0"
+ChatBar.VERSION = "2.4.0"
+
+-- Maximum number of recently-used channels remembered for history cycling
+ChatBar.MAX_HISTORY = 10
 
 -- Default settings
 ns.Defaults = {
@@ -27,6 +30,11 @@ ns.Defaults = {
     flashDuration = 3, -- Duration of flash notifications in seconds
     hideLoadedMessage = true, -- Hide addon loaded message in chat
     
+    -- Channel history cycling (session-only history; toggle enables recording)
+    channelHistory = {
+        enabled = true, -- Track recently used channels for keybind cycling
+    },
+
     -- Channel configuration
     channels = {
         -- Always available
@@ -109,6 +117,19 @@ local function RefreshEditBoxHeader(editBox)
     end
 end
 
+-- Resolve the current numbered-channel id for a channel name.
+-- Channel ids can change between zones/sessions, so cycling looks them up by name.
+local function GetNumberedChannelIdByName(name)
+    if not name then return nil end
+    local channelList = { GetChannelList() }
+    for i = 1, #channelList, 3 do
+        if channelList[i + 1] == name then
+            return channelList[i]
+        end
+    end
+    return nil
+end
+
 -- Get active settings based on profile mode
 function ChatBar:GetSettings()
     local db = ns.db
@@ -121,6 +142,10 @@ end
 -- Initialize addon UI
 function ChatBar:Initialize()
     -- SavedVariables are already initialized in ADDON_LOADED
+    -- Session-only channel history for cycling (intentionally not persisted)
+    self.channelHistory = {}
+    self.cycleIndex = 1
+
     -- Just setup UI
     self:CreateBarFrame()
     self:SetupChatFrameHooks()
@@ -715,25 +740,37 @@ function ChatBar:LayoutButtons()
     end
 end
 
--- Button click handler
-function ChatBar:OnButtonClick(button, mouseButton)
-    if not currentChatFrame then return end
-    
-    -- Stop flashing when clicked
-    self:StopFlashButton(button)
-    
-    -- Preserve current message text if chat is open
+-- Switch the active chat edit box to a channel descriptor.
+-- channelData fields: isNumbered, channelType, id (numbered), name (numbered)
+-- opts.preserveText: keep any in-progress message text
+-- opts.record: record this switch into the cycling history
+-- Returns true if a channel switch was performed.
+function ChatBar:ActivateChannel(channelData, opts)
+    if not channelData then return false end
+    opts = opts or {}
+
+    local chatFrame = currentChatFrame or ChatFrame1
+    if not chatFrame then return false end
+
+    -- Preserve current message text if requested and chat is open
     local preservedText = ""
-    local editBox = currentChatFrame.editBox
-    if editBox and editBox:IsShown() then
-        preservedText = editBox:GetText() or ""
+    if opts.preserveText then
+        local editBox = chatFrame.editBox
+        if editBox and editBox:IsShown() then
+            preservedText = editBox:GetText() or ""
+        end
     end
-    
-    local channelData = button.channelData
-    
+
+    local switched = false
+
     if channelData.isNumbered then
-        -- Numbered channel - open chat first, then set channel
-        local editBox = OpenChatWithFallback(preservedText, currentChatFrame)
+        -- Numbered channel - resolve the current id by name (ids can change)
+        local targetId = channelData.id
+        if channelData.name then
+            targetId = GetNumberedChannelIdByName(channelData.name) or targetId
+        end
+
+        local editBox = OpenChatWithFallback(preservedText, chatFrame)
         if editBox then
             if editBox.SetChatType then
                 editBox:SetChatType("CHANNEL")
@@ -742,9 +779,9 @@ function ChatBar:OnButtonClick(button, mouseButton)
             end
 
             if editBox.SetChannelTarget then
-                editBox:SetChannelTarget(channelData.id)
+                editBox:SetChannelTarget(targetId)
             elseif editBox.SetAttribute then
-                editBox:SetAttribute("channelTarget", channelData.id)
+                editBox:SetAttribute("channelTarget", targetId)
             end
 
             RefreshEditBoxHeader(editBox)
@@ -752,20 +789,21 @@ function ChatBar:OnButtonClick(button, mouseButton)
             if preservedText ~= "" then
                 editBox:SetCursorPosition(#preservedText)
             end
+            switched = true
         end
     else
         -- Standard channel
         local info = ns.ChannelInfo[channelData.channelType]
         if info then
             if info.requiresTarget and (channelData.channelType == "WHISPER" or channelData.channelType == "BN_WHISPER") then
-                -- For whisper, open chat with /w command
+                -- For whisper, open chat with /w command (needs a target; never recorded)
                 local cmd = channelData.channelType == "BN_WHISPER" and "/bw " or "/w "
                 -- Append preserved text after the command
-                OpenChatWithFallback(cmd .. preservedText, currentChatFrame)
-                return
+                OpenChatWithFallback(cmd .. preservedText, chatFrame)
+                return true
             else
                 -- Open chat and set channel type using proper API
-                local editBox = OpenChatWithFallback(preservedText, currentChatFrame)
+                local editBox = OpenChatWithFallback(preservedText, chatFrame)
                 if editBox then
                     if editBox.SetChatType then
                         editBox:SetChatType(info.command)
@@ -778,10 +816,27 @@ function ChatBar:OnButtonClick(button, mouseButton)
                     if preservedText ~= "" then
                         editBox:SetCursorPosition(#preservedText)
                     end
+                    switched = true
                 end
             end
         end
     end
+
+    if switched and opts.record then
+        self:RecordChannelHistory(channelData)
+    end
+
+    return switched
+end
+
+-- Button click handler
+function ChatBar:OnButtonClick(button, mouseButton)
+    if not currentChatFrame then return end
+
+    -- Stop flashing when clicked
+    self:StopFlashButton(button)
+
+    self:ActivateChannel(button.channelData, { preserveText = true, record = true })
 end
 
 -- Button enter handler (tooltip)
@@ -946,7 +1001,110 @@ function ChatBar:SwitchToChannel(channelType)
         if not editBox:IsShown() then
             ChatEdit_ActivateChat(editBox)
         end
+
+        -- Record this switch so it can be reached via history cycling
+        self:RecordChannelHistory({ isNumbered = false, channelType = channelType })
     end
+end
+
+-- Determine whether two channel history descriptors refer to the same channel.
+function ChatBar:IsSameChannel(a, b)
+    if not a or not b then return false end
+    if (a.isNumbered or false) ~= (b.isNumbered or false) then return false end
+    if a.isNumbered then
+        if a.name and b.name then
+            return a.name == b.name
+        end
+        return a.id == b.id
+    end
+    return a.channelType == b.channelType
+end
+
+-- Check whether a history entry's channel is currently available to switch to.
+function ChatBar:IsHistoryEntryAvailable(entry)
+    if not entry then return false end
+    if entry.isNumbered then
+        return GetNumberedChannelIdByName(entry.name) ~= nil
+    end
+    return self:IsChannelAvailable(entry.channelType)
+end
+
+-- Record a channel switch at the front of the most-recently-used history list.
+function ChatBar:RecordChannelHistory(channelData)
+    if not channelData then return end
+    if not self.channelHistory then self.channelHistory = {} end
+
+    local settings = self:GetSettings()
+    if settings.channelHistory and settings.channelHistory.enabled == false then
+        return
+    end
+
+    -- Channels that require a target (whispers) cannot be cycled to meaningfully.
+    if not channelData.isNumbered then
+        local info = ns.ChannelInfo[channelData.channelType]
+        if info and info.requiresTarget then
+            return
+        end
+    end
+
+    -- Store a normalized copy so later button-pool reuse cannot mutate history.
+    local entry = {
+        isNumbered = channelData.isNumbered or false,
+        channelType = channelData.channelType,
+        id = channelData.id,
+        name = channelData.name,
+    }
+
+    -- Move-to-front: drop any existing matching entry first.
+    for i = #self.channelHistory, 1, -1 do
+        if self:IsSameChannel(self.channelHistory[i], entry) then
+            table.remove(self.channelHistory, i)
+        end
+    end
+
+    table.insert(self.channelHistory, 1, entry)
+
+    -- Cap history length.
+    local maxSize = ChatBar.MAX_HISTORY or 10
+    while #self.channelHistory > maxSize do
+        table.remove(self.channelHistory)
+    end
+
+    -- A fresh switch resets the cycle cursor to the most-recent channel.
+    self.cycleIndex = 1
+end
+
+-- Cycle through recently-used channels.
+-- direction: 1 = older (previous), -1 = newer (next). Wraps around the list.
+function ChatBar:CycleChannel(direction)
+    local L = ns.L
+    local settings = self:GetSettings()
+    if settings.channelHistory and settings.channelHistory.enabled == false then
+        return
+    end
+
+    direction = direction or 1
+    local history = self.channelHistory or {}
+    local n = #history
+    if n == 0 then
+        print(string.format("%s: %s", L.ADDON_NAME, L.MSG_HISTORY_EMPTY))
+        return
+    end
+
+    -- Walk the list (wrapping) until an available channel is found.
+    local index = self.cycleIndex or 1
+    for _ = 1, n do
+        index = ((index - 1 + direction) % n) + 1
+        local entry = history[index]
+        if entry and self:IsHistoryEntryAvailable(entry) then
+            self.cycleIndex = index
+            self:ActivateChannel(entry, { preserveText = true, record = false })
+            return
+        end
+    end
+
+    -- No currently-available channel found in history.
+    print(string.format("%s: %s", L.ADDON_NAME, L.MSG_HISTORY_EMPTY))
 end
 
 -- Initialize on ADDON_LOADED
@@ -1012,5 +1170,11 @@ end
 function ChatBar_SwitchToChannel(channelType)
     if ns and ns.ChatBar then
         ns.ChatBar:SwitchToChannel(channelType)
+    end
+end
+
+function ChatBar_CycleChannel(direction)
+    if ns and ns.ChatBar then
+        ns.ChatBar:CycleChannel(direction)
     end
 end

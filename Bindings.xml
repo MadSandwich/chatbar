@@ -32,4 +32,10 @@
     <Binding name="CHATBAR_SWITCH_BATTLEGROUND" category="BINDING_HEADER_CHATBAR">
         ChatBar_SwitchToChannel("BATTLEGROUND")
     </Binding>
+    <Binding name="CHATBAR_CYCLE_PREV" category="BINDING_HEADER_CHATBAR">
+        ChatBar_CycleChannel(1)
+    </Binding>
+    <Binding name="CHATBAR_CYCLE_NEXT" category="BINDING_HEADER_CHATBAR">
+        ChatBar_CycleChannel(-1)
+    </Binding>
 </Bindings>

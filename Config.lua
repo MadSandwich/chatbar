@@ -297,6 +297,29 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 30
     
+    -- Channel History Cycling Section
+    local historyCheckbox = CreateFrame("CheckButton", "ChatBarChannelHistory", content, "UICheckButtonTemplate")
+    historyCheckbox:SetPoint("TOPLEFT", 16, yOffset)
+    historyCheckbox.text = historyCheckbox:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    historyCheckbox.text:SetPoint("LEFT", historyCheckbox, "RIGHT", 0, 0)
+    -- Constrain width so long (localized) labels wrap instead of running off-screen.
+    historyCheckbox.text:SetWidth(500)
+    historyCheckbox.text:SetJustifyH("LEFT")
+    historyCheckbox.text:SetText(L.CHANNEL_HISTORY_DESC or "Enable channel history cycling (assign keys in Key Bindings)")
+    
+    historyCheckbox:SetScript("OnClick", function(self)
+        local settings = ChatBar:GetSettings()
+        if not settings.channelHistory then
+            settings.channelHistory = {}
+        end
+        settings.channelHistory.enabled = self:GetChecked()
+    end)
+    
+    content.historyCheckbox = historyCheckbox
+    
+    -- Extra spacing: the wrapped label can occupy two lines for longer locales.
+    yOffset = yOffset - 44
+    
     -- Hide Loaded Message Section
     local hideLoadedCheckbox = CreateFrame("CheckButton", "ChatBarHideLoadedMessage", content, "UICheckButtonTemplate")
     hideLoadedCheckbox:SetPoint("TOPLEFT", 16, yOffset)
@@ -527,6 +550,12 @@ function Config:RefreshPanel(panel)
     -- Flash notifications
     if content.flashCheckbox then
         content.flashCheckbox:SetChecked(settings.flashNotifications ~= false)
+    end
+    
+    -- Channel history cycling
+    if content.historyCheckbox then
+        local ch = settings.channelHistory
+        content.historyCheckbox:SetChecked(not ch or ch.enabled ~= false)
     end
     
     -- Hide loaded message
