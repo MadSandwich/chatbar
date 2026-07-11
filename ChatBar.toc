@@ -1,4 +1,4 @@
-## Interface: 120000, 120001, 120005, 120007
+## Interface: 120000, 120001, 120005, 120007, 120100
 ## Title: ChatBar
 ## Notes: Quick chat channel switcher with customizable button bar and skin system
 ## Author: Artsem Burlai

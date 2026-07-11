@@ -1,5 +1,9 @@
 # ChatBar Release Notes
 
+## 2.4.1 (Version Bump)
+
+- Version bump only; no functional changes.
+
 ## 2.4.0 (Channel History Cycling)
 
 - Added channel history cycling: ChatBar now remembers the channels you switch to during a session.
