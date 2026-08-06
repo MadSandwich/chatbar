@@ -17,6 +17,9 @@
     <Binding name="CHATBAR_SWITCH_BN_WHISPER" category="BINDING_HEADER_CHATBAR">
         ChatBar_SwitchToChannel("BN_WHISPER")
     </Binding>
+    <Binding name="CHATBAR_QUICK_REPLY" category="BINDING_HEADER_CHATBAR">
+        ChatBar_QuickReplyLastWhisper()
+    </Binding>
     <Binding name="CHATBAR_SWITCH_PARTY" category="BINDING_HEADER_CHATBAR">
         ChatBar_SwitchToChannel("PARTY")
     </Binding>

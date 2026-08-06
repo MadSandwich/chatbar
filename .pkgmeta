@@ -5,6 +5,7 @@ ignore:
   - .git
   - .github/copilot-instructions.md
   - .github/prompts
+  - .github/skills
   - .vscode
   - README.md
   - .gitignore

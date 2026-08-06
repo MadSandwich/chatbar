@@ -1,5 +1,11 @@
 # ChatBar Release Notes
 
+## 2.5.0 (Quick-reply Last Whisper)
+
+- Added a "Reply" button/channel and a "Quick-reply last whisper" keybinding that jumps the chat editbox straight to your most recent whisper partner (received or sent), using Blizzard's own last-tell tracking (`ChatFrameUtil.ReplyTell`/`GetLastTellTarget`, with legacy `ChatFrame_ReplyTell` fallback). Works for both regular and Battle.net whispers automatically.
+- No new addon-side tracking of whisper senders was needed or added; the feature relies entirely on stable, always-available Blizzard chat APIs unaffected by the 12.1.0 addon security changes (which are scoped to auras, not chat).
+- Added localization for the new feature in all supported languages (enUS, deDE, esES, frFR, ruRU, koKR).
+
 ## 2.4.1 (Version Bump)
 
 - Version bump only; no functional changes.

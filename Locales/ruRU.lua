@@ -20,6 +20,7 @@ L.CHAT_INSTANCE = "Подземелье"
 L.CHAT_GUILD = "Гильдия"
 L.CHAT_OFFICER = "Офицер"
 L.CHAT_BATTLEGROUND = "Поле боя"
+L.CHAT_REPLY = "Ответ"
 
 L.SETTINGS_TITLE = "Настройки ChatBar"
 L.VERSION = "Версия"
@@ -54,6 +55,7 @@ _G["BINDING_NAME_CHATBAR_SWITCH_YELL"] = "Переключить на Крикн
 _G["BINDING_NAME_CHATBAR_SWITCH_EMOTE"] = "Переключить на Эмоция"
 _G["BINDING_NAME_CHATBAR_SWITCH_WHISPER"] = "Переключить на Шепот"
 _G["BINDING_NAME_CHATBAR_SWITCH_BN_WHISPER"] = "Переключить на Battle.net Шепот"
+_G["BINDING_NAME_CHATBAR_QUICK_REPLY"] = "Быстрый ответ на последний шепот"
 _G["BINDING_NAME_CHATBAR_SWITCH_PARTY"] = "Переключить на Группа"
 _G["BINDING_NAME_CHATBAR_SWITCH_RAID"] = "Переключить на Рейд"
 _G["BINDING_NAME_CHATBAR_SWITCH_GUILD"] = "Переключить на Гильдия"
@@ -63,6 +65,7 @@ _G["BINDING_NAME_CHATBAR_CYCLE_PREV"] = "Переключить на преды�
 _G["BINDING_NAME_CHATBAR_CYCLE_NEXT"] = "Переключить на следующий канал"
 L.CHANNEL_HISTORY_DESC = "Включить циклическое переключение по истории каналов (назначьте клавиши в настройках управления)"
 L.MSG_HISTORY_EMPTY = "История каналов пока пуста. Сначала переключите каналы."
+L.MSG_NO_WHISPER_TARGET = "Пока некому отвечать. Сначала отправьте или получите шепот."
 
 L.MSG_BAR_SHOWN = "Панель показана"
 L.MSG_BAR_HIDDEN = "Панель скрыта"

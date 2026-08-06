@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "2.4.1"
+ChatBar.VERSION = "2.5.0"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
@@ -56,6 +56,9 @@ ns.Defaults = {
         
         -- PvP channels
         BATTLEGROUND = { enabled = true, order = 12 },
+
+        -- Quick-reply to the most recent whisper sender (auto-resolved target)
+        REPLY = { enabled = false, order = 13 },
     },
     
     -- Numbered channels (General, Trade, LocalDefense, etc.)
@@ -83,6 +86,7 @@ ns.ChannelInfo = {
     GUILD = { labelKey = "CHAT_GUILD", command = "GUILD", requiresTarget = false },
     OFFICER = { labelKey = "CHAT_OFFICER", command = "OFFICER", requiresTarget = false },
     BATTLEGROUND = { labelKey = "CHAT_BATTLEGROUND", command = "BATTLEGROUND", requiresTarget = false },
+    REPLY = { labelKey = "CHAT_REPLY", command = "REPLY", requiresTarget = true },
 }
 
 -- Local references
@@ -454,6 +458,10 @@ function ChatBar:IsChannelAvailable(channelType)
         return true -- Always available but needs target
     end
     
+    if channelType == "REPLY" then
+        return true -- Always available; target auto-resolved from last whisper
+    end
+    
     if channelType == "PARTY" then
         return IsInGroup() and not IsInRaid()
     end
@@ -740,6 +748,53 @@ function ChatBar:LayoutButtons()
     end
 end
 
+-- Quick-reply to the most recently whispered player (received or sent), using
+-- Blizzard's own last-tell tracking (ChatFrameUtil.GetLastTellTarget/ReplyTell,
+-- exposed globally by Blizzard_ChatFrameBase and always addon-accessible).
+-- ChatBar never needs to track whisper senders itself: the default UI already
+-- records the last tell target whenever CHAT_MSG_WHISPER/CHAT_MSG_BN_WHISPER
+-- (or their _INFORM variants) fire. Works for both regular and Battle.net
+-- whispers automatically (ReplyTell restores whichever type was last used).
+-- Never recorded in channel history since there's no persistent "channel" here.
+function ChatBar:QuickReplyLastWhisper(chatFrame, preservedText)
+    local L = ns.L
+    chatFrame = chatFrame or currentChatFrame or ChatFrame1
+    if not chatFrame then return false end
+
+    local hasLastTell
+    if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
+        hasLastTell = ChatFrameUtil.GetLastTellTarget() ~= nil
+    elseif ChatEdit_GetLastTellTarget then
+        hasLastTell = ChatEdit_GetLastTellTarget() ~= nil
+    end
+
+    if not hasLastTell then
+        print(string.format("%s: %s", L.ADDON_NAME, L.MSG_NO_WHISPER_TARGET))
+        return false
+    end
+
+    if ChatFrameUtil and ChatFrameUtil.ReplyTell then
+        ChatFrameUtil.ReplyTell(chatFrame)
+    elseif ChatFrame_ReplyTell then
+        ChatFrame_ReplyTell(chatFrame)
+    else
+        return false
+    end
+
+    local editBox = chatFrame.editBox
+    if editBox then
+        if not editBox:IsShown() then
+            ChatEdit_ActivateChat(editBox)
+        end
+        if preservedText and preservedText ~= "" then
+            editBox:SetText(preservedText)
+            editBox:SetCursorPosition(#preservedText)
+        end
+    end
+
+    return true
+end
+
 -- Switch the active chat edit box to a channel descriptor.
 -- channelData fields: isNumbered, channelType, id (numbered), name (numbered)
 -- opts.preserveText: keep any in-progress message text
@@ -795,7 +850,10 @@ function ChatBar:ActivateChannel(channelData, opts)
         -- Standard channel
         local info = ns.ChannelInfo[channelData.channelType]
         if info then
-            if info.requiresTarget and (channelData.channelType == "WHISPER" or channelData.channelType == "BN_WHISPER") then
+            if channelData.channelType == "REPLY" then
+                -- Quick-reply: target is auto-resolved from the last whisper; never recorded.
+                return self:QuickReplyLastWhisper(chatFrame, preservedText)
+            elseif info.requiresTarget and (channelData.channelType == "WHISPER" or channelData.channelType == "BN_WHISPER") then
                 -- For whisper, open chat with /w command (needs a target; never recorded)
                 local cmd = channelData.channelType == "BN_WHISPER" and "/bw " or "/w "
                 -- Append preserved text after the command
@@ -1170,6 +1228,12 @@ end
 function ChatBar_SwitchToChannel(channelType)
     if ns and ns.ChatBar then
         ns.ChatBar:SwitchToChannel(channelType)
+    end
+end
+
+function ChatBar_QuickReplyLastWhisper()
+    if ns and ns.ChatBar then
+        ns.ChatBar:ActivateChannel({ isNumbered = false, channelType = "REPLY" }, { preserveText = true })
     end
 end
 

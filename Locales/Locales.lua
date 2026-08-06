@@ -28,6 +28,7 @@ L.CHAT_INSTANCE = "Instance"
 L.CHAT_GUILD = "Guild"
 L.CHAT_OFFICER = "Officer"
 L.CHAT_BATTLEGROUND = "Battleground"
+L.CHAT_REPLY = "Reply"
 
 -- Settings UI
 L.SETTINGS_TITLE = "ChatBar Settings"
@@ -64,6 +65,7 @@ _G["BINDING_NAME_CHATBAR_SWITCH_YELL"] = "Switch to Yell"
 _G["BINDING_NAME_CHATBAR_SWITCH_EMOTE"] = "Switch to Emote"
 _G["BINDING_NAME_CHATBAR_SWITCH_WHISPER"] = "Switch to Whisper"
 _G["BINDING_NAME_CHATBAR_SWITCH_BN_WHISPER"] = "Switch to Battle.net Whisper"
+_G["BINDING_NAME_CHATBAR_QUICK_REPLY"] = "Quick-reply last whisper"
 _G["BINDING_NAME_CHATBAR_SWITCH_PARTY"] = "Switch to Party"
 _G["BINDING_NAME_CHATBAR_SWITCH_RAID"] = "Switch to Raid"
 _G["BINDING_NAME_CHATBAR_SWITCH_GUILD"] = "Switch to Guild"
@@ -81,6 +83,7 @@ L.MSG_RESET_COMPLETE = "Settings reset!"
 L.MSG_STILL_LOADING = "Addon is still loading, please try again in a moment."
 L.MSG_SETTINGS_LOADING = "Settings panel is still loading, please try again in a moment."
 L.MSG_HISTORY_EMPTY = "No channel history yet. Switch channels first."
+L.MSG_NO_WHISPER_TARGET = "No one to reply to yet. Send or receive a whisper first."
 
 -- Tooltips
 L.TOOLTIP_CHANNEL = "Channel"
