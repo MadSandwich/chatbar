@@ -1,6 +1,6 @@
 ## Interface: 120000, 120001, 120005, 120007, 120100
 ## Title: ChatBar
-## Notes: Quick chat channel switcher with customizable button bar and skin system
+## Notes: Quick chat channel switcher with a customizable button bar and code-driven themes
 ## Author: Artsem Burlai
 ## Version: @project-version@
 ## X-Curse-Project-ID: 1443471
@@ -14,7 +14,7 @@
 ## SavedVariables: ChatBarDB
 ## SavedVariablesPerCharacter: ChatBarCharDB
 
-# Localization files (load first)
+# Localization files (load first -- themes reference L keys for their names)
 Locales\Locales.lua
 Locales\deDE.lua
 Locales\esES.lua
@@ -22,12 +22,17 @@ Locales\frFR.lua
 Locales\ruRU.lua
 Locales\koKR.lua
 
-# Skin files (load before Textures.lua)
-Skins\Default\skin.lua
-Skins\Round\skin.lua
-Skins\Minimal\skin.lua
+# Design primitives (pixel grid first, then the theme tokens built on it)
+Core\Pixel.lua
+Core\Theme.lua
+
+# Themes register themselves into ns.ThemeRegistry
+Themes\Flat.lua
+Themes\Glass.lua
+
+# Design engine consumes the registry above
+Design.lua
 
 # Core files
-Textures.lua
 ChatBar.lua
 Config.lua

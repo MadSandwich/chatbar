@@ -25,6 +25,56 @@ Access via:
 - Interface → AddOns → ChatBar
 - Game Menu (ESC) → Interface → AddOns → ChatBar
 
+### Appearance
+
+ChatBar draws itself from **themes** rather than texture files -- every surface is
+a colour or gradient generated at runtime, so the look stays crisp at any
+resolution and UI scale.
+
+- **Flat** -- channel-coloured plates, the active channel filled in, the rest
+  sitting back at low alpha, and one accent rule running under the whole bar
+- **Glass** -- the same design rendered as glass: each plate a gradient lit from
+  above, with a sheen across the top third and a rim that catches the accent
+
+Both themes colour every channel with its own hue, normalised to a fixed
+perceptual luminance so a row of eight channels reads as eight colours at one
+brightness rather than the glare-and-mud of the raw `ChatTypeInfo` palette.
+Numbered channels are deliberately left uncoloured -- they read as one neutral
+group instead of competing with the named channels around them.
+
+**Button shape** belongs to the theme. Both ship square by default, which is
+what makes them read as one design in two finishes. Flat is a tab strip and
+fixes that -- its control greys out. Glass survives being reshaped, so it keeps
+a square-or-round choice.
+
+The **accent colour** defaults to your class colour and marks whichever channel
+the chat box is currently pointed at. The settings panel shows a live preview
+drawn by the same engine that draws the real bar.
+
+#### Fonts
+
+Two choices:
+
+- **Default** -- the client's own UI face. Resolved through a Blizzard font
+  object rather than a file path, so it is the right face in every language.
+- **Expressway** -- bundled with the addon (`Media/Expressway.ttf`). Expressway
+  Free by Ray Larabie, freeware, covering Latin, Latin-1 and the full Cyrillic
+  alphabet.
+
+Expressway carries no CJK glyphs, so on Korean and Chinese clients it falls back
+to the Default face rather than drawing a row of empty boxes. Every other locale,
+Russian included, renders natively.
+
+#### Adding a theme
+
+1. Create `Themes/YourTheme.lua` and register it into `ns.ThemeRegistry`
+2. Add the file to `ChatBar.toc` above `Design.lua`
+3. Add `THEME_YOURTHEME` / `THEME_YOURTHEME_DESC` keys to `Locales/Locales.lua`
+
+Copy `Themes/Flat.lua` for the full token schema. Colour tokens are
+`{ r, g, b, a }` and may carry an `accent = true` or `channel = true` marker,
+plus optional `lighten` / `darken`, which the engine resolves at paint time.
+
 ### Localization
 
 - **Supported Languages**: English (enUS), German (deDE), Spanish (esES), French (frFR), Russian (ruRU)
@@ -43,7 +93,8 @@ Access via:
 - **Lightweight**: Minimal memory footprint (~100KB)
 - **Event-driven**: Only updates when game state changes
 - **No continuous polling**: Uses WoW's event system efficiently
-- **Texture caching**: Reuses button objects from pool
+- **No texture files**: Themes are pure Lua, drawn with the engine's own colour and gradient calls
+- **Object pooling**: Reuses button frames and their texture stacks across rebuilds
 
 ## Advanced
 
@@ -54,14 +105,24 @@ ChatBar/
 ├── ChatBar.lua          # Main addon logic
 ├── ChatBar.toc          # Addon manifest
 ├── ChatBar.tga          # Addon icon
+├── Design.lua           # Design engine: paints the bar and buttons
 ├── Config.lua           # Settings panel UI
 ├── README.md            # Documentation
+├── Core/
+│   ├── Pixel.lua        # Pixel-perfect geometry and the 1px border primitive
+│   └── Theme.lua        # Theme tokens, accent resolution, colour helpers
+├── Media/
+│   └── Expressway.ttf   # Bundled label font (Latin only)
+├── Themes/
+│   ├── Flat.lua         # Channel-coloured plates, accent rule under the bar
+│   └── Glass.lua        # The same design in lit glass, with an accent rim
 └── Locales/
     ├── Locales.lua      # English (base)
     ├── deDE.lua         # German
     ├── esES.lua         # Spanish
     ├── frFR.lua         # French
-    └── ruRU.lua         # Russian
+    ├── ruRU.lua         # Russian
+    └── koKR.lua         # Korean
 ```
 
 ### Extending Localization
@@ -143,7 +204,7 @@ The following files are included in the CurseForge package:
 - All `.lua` and `.xml` files
 - `ChatBar.toc` (with version automatically updated from tag)
 - `Bindings.xml`
-- All files in `Locales/` and `Skins/` directories
+- All files in `Locales/`, `Core/` and `Themes/` directories
 
 The following are excluded:
 - `.github/` directory (except workflow runs)

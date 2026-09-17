@@ -24,6 +24,203 @@ local function NumberedFilterCheckboxResetter(pool, cb)
     end
 end
 
+--[[
+    Modern dropdown helper
+
+    UIDropDownMenu has been deprecated since 11.0 (EasyMenu was removed outright
+    in the same patch). DropdownButton + WowStyle1DropdownTemplate is the
+    supported path and matches the rest of the modern settings UI.
+]]
+
+-- entriesFn() returns a list of { value, text, tooltipTitle, tooltipText }.
+-- getFn() returns the currently selected value; setFn(value) applies a choice.
+local function CreateDropdown(parent, width, entriesFn, getFn, setFn)
+    local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
+    dropdown:SetWidth(width or 170)
+
+    dropdown:SetupMenu(function(_, rootDescription)
+        local selected = getFn()
+
+        for _, entry in ipairs(entriesFn()) do
+            local radio = rootDescription:CreateRadio(
+                entry.text,
+                function(value) return value == selected end,
+                function(value)
+                    setFn(value)
+                    return MenuResponse.CloseAll
+                end,
+                entry.value)
+
+            if entry.tooltipTitle or entry.tooltipText then
+                radio:SetTooltip(function(tooltip)
+                    if entry.tooltipTitle then
+                        GameTooltip_SetTitle(tooltip, entry.tooltipTitle)
+                    end
+                    if entry.tooltipText and entry.tooltipText ~= "" then
+                        GameTooltip_AddNormalLine(tooltip, entry.tooltipText)
+                    end
+                end)
+            end
+        end
+    end)
+
+    return dropdown
+end
+
+-- Re-read a dropdown's selection so its button text matches the settings.
+local function RefreshDropdown(dropdown)
+    if dropdown and dropdown.GenerateMenu then
+        dropdown:GenerateMenu()
+    end
+end
+
+--[[
+    Live theme preview
+
+    Renders a short sample bar through the real design engine, so what the
+    player sees in settings is drawn by exactly the code that draws the bar.
+]]
+
+-- Real channel descriptors, not display strings: the preview runs them through
+-- ChatBar's own glyph and colour lookups, so it shows the player's locale
+-- letters and the same per-slot channel colours the live bar uses.
+local PREVIEW_CHANNELS = {
+    { channelType = "SAY",   isNumbered = false },
+    { channelType = "PARTY", isNumbered = false },
+    { channelType = "RAID",  isNumbered = false },
+    { channelType = "GUILD", isNumbered = false },
+    { isNumbered = true, id = 1 },
+}
+
+function Config:CreatePreview(parent)
+    local preview = CreateFrame("Frame", nil, parent)
+    preview:SetSize(260, 46)
+
+    ns.Design:BuildBar(preview)
+
+    preview.buttons = {}
+    for i = 1, #PREVIEW_CHANNELS do
+        local button = CreateFrame("Button", nil, preview)
+        button:EnableMouse(false)
+        ns.Design:BuildButton(button)
+        preview.buttons[i] = button
+    end
+
+    return preview
+end
+
+function Config:UpdatePreview(preview)
+    if not preview then return end
+
+    local settings = ChatBar:GetSettings()
+    local size = settings.buttonSize or 24
+    local padding = ns.Design:GetPadding()
+    local spacing = ns.Design:GetSpacing()
+
+    -- Masks and animations from the previous theme have to go before restyling,
+    -- exactly as the live bar does on a theme swap.
+    for _, button in ipairs(preview.buttons) do
+        ns.Design:ReleaseButton(button)
+    end
+
+    ns.Design:StyleBar(preview)
+
+    for i, button in ipairs(preview.buttons) do
+        local channelData = PREVIEW_CHANNELS[i]
+        button.text:SetText(ChatBar:GetButtonGlyph(channelData))
+
+        ns.Design:StyleButton(button, {
+            size = size,
+            channelColor = ChatBar:GetChannelColor(channelData),
+            fontSize = settings.fontSize or ns.Design:GetDefaultFontSize(),
+            -- Honour the real setting: a preview that always says "inside"
+            -- misrepresents the bar for anyone using labels above.
+            textPosition = settings.textPosition,
+            orientation = "horizontal",
+            enabled = true,
+            -- Second sample shows what the active channel looks like.
+            active = (i == 2),
+        })
+
+        button:ClearAllPoints()
+        ns.Pixel.Point(button, "TOPLEFT", preview, "TOPLEFT",
+            padding + ((i - 1) * (size + spacing)), -padding)
+    end
+
+    local width = (size * #preview.buttons) + (spacing * (#preview.buttons - 1)) + (padding * 2)
+    local height = size + (padding * 2)
+    ns.Pixel.Size(preview, width, height)
+end
+
+-- Custom accent picker. Uses the modern SetupColorPickerAndShow entry point
+-- rather than poking ColorPickerFrame's fields directly.
+function Config:OpenAccentColorPicker()
+    local settings = ChatBar:GetSettings()
+    local r, g, b = ns.Theme:GetAccent()
+
+    local function Apply(nr, ng, nb)
+        settings.accent = "custom"
+        settings.accentColor = { r = nr, g = ng, b = nb }
+        ns.Theme:NotifyChanged("accent")
+        if Config.panel then
+            Config:RefreshPanel(Config.panel)
+        end
+    end
+
+    ColorPickerFrame:SetupColorPickerAndShow({
+        r = r, g = g, b = b,
+        hasOpacity = false,
+        swatchFunc = function()
+            Apply(ColorPickerFrame:GetColorRGB())
+        end,
+        cancelFunc = function(previous)
+            if previous then
+                Apply(previous.r, previous.g, previous.b)
+            end
+        end,
+    })
+end
+
+-- Background surface colour picker.
+--
+-- Seeded from whatever is on screen right now: with no override stored, that is
+-- the theme's own bar colour, so the picker opens on the current look instead of
+-- an arbitrary swatch.
+function Config:OpenBackgroundColorPicker()
+    local settings = ChatBar:GetSettings()
+    local current = settings.backgroundColor
+    local r, g, b
+
+    if current then
+        r, g, b = current.r, current.g, current.b
+    else
+        local theme = ns.Design:GetTheme()
+        local barCfg = theme.bar or {}
+        r, g, b = ns.Theme:Resolve(barCfg.gradient and barCfg.gradient.from or barCfg.fill)
+    end
+
+    local function Apply(nr, ng, nb)
+        settings.backgroundColor = { r = nr, g = ng, b = nb }
+        ns.Theme:NotifyChanged("background")
+        if Config.panel then
+            Config:RefreshPanel(Config.panel)
+        end
+    end
+
+    ColorPickerFrame:SetupColorPickerAndShow({
+        r = r, g = g, b = b,
+        hasOpacity = false,
+        swatchFunc = function()
+            Apply(ColorPickerFrame:GetColorRGB())
+        end,
+        cancelFunc = function(previous)
+            if previous then
+                Apply(previous.r, previous.g, previous.b)
+            end
+        end,
+    })
+end
+
 -- Initialize config (called from ChatBar after ADDON_LOADED)
 function Config:Initialize()
     ChatBar = ns.ChatBar
@@ -95,64 +292,241 @@ function Config:CreateSettingsPanel()
     
     yOffset = yOffset - 80
     
-    -- Skin Selection Section
-    local skinLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    skinLabel:SetPoint("TOPLEFT", 16, yOffset)
-    skinLabel:SetText(L.SKIN_SELECTION or "Skin:")
-    
-    -- Create custom dropdown frame for skin selection
-    local skinDropdown = CreateFrame("Frame", "ChatBarSkinDropdown", content, "UIDropDownMenuTemplate")
-    skinDropdown:SetPoint("TOPLEFT", skinLabel, "BOTTOMLEFT", -16, -4)
-    UIDropDownMenu_SetWidth(skinDropdown, 200)
-    
-    -- Initialize dropdown with available skins
-    UIDropDownMenu_Initialize(skinDropdown, function(self, level)
-        local settings = ChatBar:GetSettings()
-        local skins = ns.Textures:GetAvailableSkins()
-        
-        for _, skinInfo in ipairs(skins) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text = skinInfo.name
-            info.value = skinInfo.id
-            info.tooltipTitle = skinInfo.name
-            info.tooltipText = skinInfo.description .. "\n|cff888888by " .. skinInfo.author .. "|r"
-            info.tooltipOnButton = true
-            info.func = function(self)
-                local settings = ChatBar:GetSettings()
-                settings.skinName = skinInfo.id
-                UIDropDownMenu_SetSelectedValue(skinDropdown, skinInfo.id)
-                UIDropDownMenu_SetText(skinDropdown, skinInfo.name)
-                -- Hot-swap skin
-                ns.Textures:LoadSkin(skinInfo.id)
-                -- Apply skin's default fontSize to settings
-                local newSkin = ns.Textures:GetCurrentSkin()
-                if newSkin and newSkin.fontSize then
-                    settings.fontSize = newSkin.fontSize
-                end
-                ChatBar:RefreshAllButtons()
-                ChatBar:RefreshBarTextures()
-                ChatBar:LayoutButtons()
-                -- Refresh config UI to show new fontSize
-                if ns.Config and ns.Config.panel then
-                    ns.Config:RefreshPanel(ns.Config.panel)
-                end
+    -- Appearance Section: theme, button shape, accent colour
+    local appearanceLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    appearanceLabel:SetPoint("TOPLEFT", 16, yOffset)
+    appearanceLabel:SetText(L.APPEARANCE or "Appearance")
+
+    local COL_W, COL_GAP = 170, 12
+    local COL_X = { 16, 16 + COL_W + COL_GAP, 16 + (COL_W + COL_GAP) * 2 }
+
+    -- Two rows of three columns. ROW_Y is the label baseline for each row; the
+    -- control sits 16px below its label.
+    local ROW_Y = { yOffset - 24, yOffset - 74 }
+
+    local function ColumnLabel(text, column, row)
+        local fs = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+        fs:SetPoint("TOPLEFT", COL_X[column], ROW_Y[row or 1])
+        fs:SetText(text)
+        fs:SetTextColor(0.75, 0.75, 0.75)
+        return fs
+    end
+
+    local function ControlPoint(control, column, row, dx)
+        control:SetPoint("TOPLEFT", COL_X[column] + (dx or -2), ROW_Y[row or 1] - 16)
+    end
+
+    -- Theme -----------------------------------------------------------------
+    ColumnLabel(L.THEME or "Theme", 1, 1)
+
+    local themeDropdown = CreateDropdown(content, COL_W,
+        function()
+            local entries = {}
+            for _, theme in ipairs(ns.Design:GetAvailableThemes()) do
+                entries[#entries + 1] = {
+                    value = theme.id,
+                    text = theme.name,
+                    tooltipTitle = theme.name,
+                    tooltipText = theme.description,
+                }
             end
-            info.checked = (settings.skinName == skinInfo.id)
-            UIDropDownMenu_AddButton(info)
+            return entries
+        end,
+        function()
+            return ChatBar:GetSettings().theme or "Flat"
+        end,
+        function(value)
+            local settings = ChatBar:GetSettings()
+            if settings.theme == value then return end
+            settings.theme = value
+            -- A theme carries its own text scale; adopt it rather than leaving
+            -- the player on a size tuned for the theme they just left.
+            ChatBar:ApplyThemeFontDefault(settings)
+            -- Shape follows the new theme unless the player pinned one.
+            ns.Theme:NotifyChanged("theme")
+            Config:RefreshPanel(Config.panel)
+        end)
+    themeDropdown:SetDefaultText(L.THEME or "Theme")
+    ControlPoint(themeDropdown, 1, 1)
+    content.themeDropdown = themeDropdown
+
+    -- Button shape ----------------------------------------------------------
+    content.shapeLabel = ColumnLabel(L.BUTTON_SHAPE or "Button shape", 2, 1)
+
+    local shapeDropdown = CreateDropdown(content, COL_W,
+        function()
+            local entries = {}
+            -- Only the shapes this client can actually cut: a shape whose mask
+            -- art is missing silently degrades to square, and offering a choice
+            -- that does nothing is worse than not offering it.
+            for _, id in ipairs(ns.Design:GetAvailableShapes()) do
+                local key = "SHAPE_" .. id:upper()
+                entries[#entries + 1] = { value = id, text = L[key] or id }
+            end
+            return entries
+        end,
+        function()
+            return ChatBar:GetSettings().buttonShape or "square"
+        end,
+        function(value)
+            local settings = ChatBar:GetSettings()
+            settings.buttonShape = value
+            ns.Theme:NotifyChanged("shape")
+            Config:RefreshPanel(Config.panel)
+        end)
+    shapeDropdown:SetDefaultText(L.SHAPE_SQUARE or "Square")
+    ControlPoint(shapeDropdown, 2, 1)
+    content.shapeDropdown = shapeDropdown
+
+    -- Accent colour ---------------------------------------------------------
+    ColumnLabel(L.ACCENT or "Accent", 3, 1)
+
+    local accentDropdown = CreateDropdown(content, COL_W,
+        function()
+            local entries = {}
+            for _, id in ipairs(ns.Theme:GetAccentChoices()) do
+                local key = "ACCENT_" .. id:upper()
+                entries[#entries + 1] = { value = id, text = L[key] or id }
+            end
+            return entries
+        end,
+        function()
+            return ChatBar:GetSettings().accent or "class"
+        end,
+        function(value)
+            local settings = ChatBar:GetSettings()
+            settings.accent = value
+            if value == "custom" then
+                Config:OpenAccentColorPicker()
+            else
+                ns.Theme:NotifyChanged("accent")
+                Config:RefreshPanel(Config.panel)
+            end
+        end)
+    accentDropdown:SetDefaultText(L.ACCENT or "Accent colour")
+    ControlPoint(accentDropdown, 3, 1)
+    content.accentDropdown = accentDropdown
+
+    -- Font ------------------------------------------------------------------
+    ColumnLabel(L.FONT or "Font", 1, 2)
+
+    local fontDropdown = CreateDropdown(content, COL_W,
+        function()
+            local entries = {}
+            for _, choice in ipairs(ns.Theme:GetFontChoices()) do
+                entries[#entries + 1] = {
+                    value = choice.id,
+                    text = L[choice.nameKey] or choice.id,
+                }
+            end
+            return entries
+        end,
+        function()
+            return ns.Theme:GetFontId()
+        end,
+        function(value)
+            local settings = ChatBar:GetSettings()
+            if settings.font == value then return end
+            settings.font = value
+            ns.Theme:NotifyChanged("font")
+            Config:RefreshPanel(Config.panel)
+        end)
+    fontDropdown:SetDefaultText(L.FONT or "Font")
+    ControlPoint(fontDropdown, 1, 2)
+    content.fontDropdown = fontDropdown
+
+    -- Background colour -----------------------------------------------------
+    ColumnLabel(L.BACKGROUND_COLOR or "Background", 2, 2)
+
+    local swatch = CreateFrame("Button", nil, content)
+    swatch:SetSize(COL_W, 22)
+    ControlPoint(swatch, 2, 2, 0)
+
+    local swatchFill = swatch:CreateTexture(nil, "ARTWORK")
+    swatchFill:SetAllPoints()
+    ns.Pixel.NoSnap(swatchFill)
+    swatch.fill = swatchFill
+    ns.Pixel.CreateBorder(swatch, 1, 1, 1, 0.25)
+
+    swatch:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    swatch:SetScript("OnClick", function(_, mouseButton)
+        if mouseButton == "RightButton" then
+            -- Right-click hands the colour back to the theme rather than
+            -- forcing the player to guess the theme's own value.
+            local settings = ChatBar:GetSettings()
+            settings.backgroundColor = nil
+            ns.Theme:NotifyChanged("background")
+            Config:RefreshPanel(Config.panel)
+        else
+            Config:OpenBackgroundColorPicker()
         end
     end)
-    
-    content.skinDropdown = skinDropdown
-    
-    -- Skin description text
-    local skinDescription = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    skinDescription:SetPoint("TOPLEFT", skinDropdown, "BOTTOMLEFT", 20, 0)
-    skinDescription:SetTextColor(0.6, 0.6, 0.6)
-    skinDescription:SetWidth(300)
-    skinDescription:SetJustifyH("LEFT")
-    content.skinDescription = skinDescription
-    
-    yOffset = yOffset - 80
+    swatch:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L.BACKGROUND_COLOR or "Background")
+        GameTooltip:AddLine(L.BACKGROUND_COLOR_HINT or "Right-click to use the theme's own colour.", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    swatch:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    content.backgroundSwatch = swatch
+
+    -- Opacity ---------------------------------------------------------------
+    ColumnLabel(L.BACKGROUND_OPACITY or "Opacity", 3, 2)
+
+    local opacitySlider = CreateFrame("Slider", "ChatBarOpacitySlider", content, "OptionsSliderTemplate")
+    opacitySlider:SetMinMaxValues(5, 100)
+    opacitySlider:SetValueStep(5)
+    opacitySlider:SetObeyStepOnDrag(true)
+    opacitySlider:SetWidth(COL_W - 12)
+    ControlPoint(opacitySlider, 3, 2, 4)
+
+    _G[opacitySlider:GetName() .. "Low"]:SetText("5%")
+    _G[opacitySlider:GetName() .. "High"]:SetText("100%")
+
+    opacitySlider:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L.BACKGROUND_OPACITY or "Bar opacity")
+        GameTooltip:AddLine(L.BACKGROUND_OPACITY_HINT or
+            "Applies to the bar background only, never to the channel buttons.", 0.7, 0.7, 0.7, true)
+        if not self:IsEnabled() then
+            GameTooltip:AddLine(L.BACKGROUND_OPACITY_NO_BAR or
+                "The current theme draws no bar background.", 1, 0.5, 0.5, true)
+        end
+        GameTooltip:Show()
+    end)
+    opacitySlider:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    opacitySlider:SetScript("OnValueChanged", function(self, value)
+        local settings = ChatBar:GetSettings()
+        local opacity = value / 100
+
+        _G[self:GetName() .. "Text"]:SetText(string.format("%d%%", math.floor(value)))
+
+        -- RefreshPanel drives SetValue to sync the widget, which fires this
+        -- handler again; bail on a no-op rather than triggering a second full
+        -- rebuild of the bar for a value that did not change.
+        if math.abs((settings.backgroundOpacity or 1) - opacity) < 0.001 then return end
+
+        settings.backgroundOpacity = opacity
+        ChatBar:Refresh()
+        Config:UpdatePreview(content.preview)
+    end)
+    content.opacitySlider = opacitySlider
+
+    -- Theme description -----------------------------------------------------
+    local themeDescription = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    themeDescription:SetPoint("TOPLEFT", 16, yOffset - 124)
+    themeDescription:SetTextColor(0.6, 0.6, 0.6)
+    themeDescription:SetWidth(540)
+    themeDescription:SetJustifyH("LEFT")
+    content.themeDescription = themeDescription
+
+    -- Live preview ----------------------------------------------------------
+    local preview = self:CreatePreview(content)
+    preview:SetPoint("TOPLEFT", 16, yOffset - 146)
+    content.preview = preview
+
+    yOffset = yOffset - 220
     
     -- Orientation Section
     local orientationLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -213,6 +587,7 @@ function Config:CreateSettingsPanel()
         settings.fontSize = value
         _G[self:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
         ChatBar:Refresh()
+        Config:UpdatePreview(content.preview)
     end)
     
     content.fontSizeSlider = fontSizeSlider
@@ -239,6 +614,7 @@ function Config:CreateSettingsPanel()
         settings.buttonSize = value
         _G[self:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
         ChatBar:Refresh()
+        Config:UpdatePreview(content.preview)
     end)
     
     content.buttonSizeSlider = buttonSizeSlider
@@ -496,18 +872,66 @@ function Config:RefreshPanel(panel)
     content.profileAccount:SetChecked(ns.db.profileMode == "account")
     content.profileCharacter:SetChecked(ns.db.profileMode == "character")
     
-    -- Skin dropdown
-    if content.skinDropdown then
-        local skinName = settings.skinName or "Default"
-        local skin = ns.SkinRegistry and ns.SkinRegistry[skinName]
-        UIDropDownMenu_SetSelectedValue(content.skinDropdown, skinName)
-        UIDropDownMenu_SetText(content.skinDropdown, skin and skin.name or skinName)
-        
-        -- Update description text
-        if content.skinDescription and skin then
-            content.skinDescription:SetText(skin.description .. " | by " .. (skin.author or "Unknown"))
+    -- Appearance dropdowns: re-read so the button text follows the settings,
+    -- including changes made from a slash command or a profile switch.
+    RefreshDropdown(content.themeDropdown)
+    RefreshDropdown(content.shapeDropdown)
+    RefreshDropdown(content.accentDropdown)
+    RefreshDropdown(content.fontDropdown)
+
+    -- Background swatch shows the override when one is set, otherwise the
+    -- theme's own colour, so it always reflects what is actually on screen.
+    if content.backgroundSwatch then
+        local color = settings.backgroundColor
+        local r, g, b
+        if color then
+            r, g, b = color.r, color.g, color.b
+        else
+            local theme = ns.Design:GetTheme()
+            local barCfg = theme.bar or {}
+            r, g, b = ns.Theme:Resolve(barCfg.gradient and barCfg.gradient.from or barCfg.fill)
+        end
+        content.backgroundSwatch.fill:SetColorTexture(r, g, b, 1)
+    end
+
+    -- Themes whose shape is part of their identity fix it. Grey the control out
+    -- rather than hiding it, so the row keeps its layout and the reason the
+    -- choice is unavailable stays visible next to the theme that caused it.
+    if content.shapeDropdown then
+        local allowed = ns.Design:AllowsShapeChoice()
+        content.shapeDropdown:SetEnabled(allowed)
+        content.shapeDropdown:SetAlpha(allowed and 1 or 0.4)
+        if content.shapeLabel then
+            content.shapeLabel:SetAlpha(allowed and 1 or 0.4)
         end
     end
+
+    if content.opacitySlider then
+        local percent = math.floor((settings.backgroundOpacity or 1) * 100 + 0.5)
+        content.opacitySlider:SetValue(percent)
+        _G[content.opacitySlider:GetName() .. "Text"]:SetText(string.format("%d%%", percent))
+
+        -- Themes that draw no bar backdrop have nothing for this slider to act
+        -- on; grey it out rather than letting it look live and do nothing.
+        local barCfg = ns.Design:GetTheme().bar or {}
+        local hasBar = barCfg.show ~= false
+        content.opacitySlider:SetEnabled(hasBar)
+        content.opacitySlider:SetAlpha(hasBar and 1 or 0.4)
+    end
+
+    if content.themeDescription then
+        local theme = ns.Theme:Get(settings.theme or "Flat")
+        if theme then
+            local L = ns.L
+            local description = (theme.descKey and L[theme.descKey]) or ""
+            content.themeDescription:SetText(string.format("%s |cff888888%s %s|r",
+                description, L.SKIN_AUTHOR or "by", theme.author or "ChatBar"))
+        else
+            content.themeDescription:SetText("")
+        end
+    end
+
+    self:UpdatePreview(content.preview)
     
     -- Orientation
     content.orientationHorizontal:SetChecked(settings.orientation == "horizontal")

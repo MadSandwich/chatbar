@@ -8,16 +8,23 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "2.5.0"
+ChatBar.VERSION = "3.0.0"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
 
 -- Default settings
 ns.Defaults = {
-    version = 2,
+    version = 3,
     profileMode = "account", -- "account" or "character"
-    skinName = "Default", -- Skin folder name
+    theme = "Flat", -- Design theme id, see Themes/
+    buttonShape = "square", -- "square" or "circle"; a theme may fix its own and ignore this
+    accent = "class", -- Accent source: "class", a preset name, or "custom"
+    accentColor = nil, -- {r, g, b} used when accent == "custom"
+    font = "default", -- Label font, see ns.Theme.FONT_CHOICES
+    backgroundColor = nil, -- {r, g, b} overriding the theme's surface colour
+    backgroundOpacity = 1, -- Multiplies the theme's surface alpha, 0 to 1
+    activeChannel = nil, -- Remembered channel selection {isNumbered, channelType, id, name}
     orientation = "horizontal", -- "horizontal" or "vertical"
     barVisible = true,
     lockPosition = false,
@@ -69,8 +76,8 @@ ns.Defaults = {
     }
 }
 
--- Skin registry (populated by skin.lua files)
-ns.SkinRegistry = ns.SkinRegistry or {}
+-- Theme registry (populated by the files in Themes/)
+ns.ThemeRegistry = ns.ThemeRegistry or {}
 
 -- Channel info with localization keys
 ns.ChannelInfo = {
@@ -121,6 +128,37 @@ local function RefreshEditBoxHeader(editBox)
     end
 end
 
+-- Blizzard's chat helpers moved onto the ChatFrameUtil namespace; the bare
+-- ChatEdit_* globals remain as compatibility shims. Prefer the namespace and
+-- fall back, the same way OpenChatWithFallback above does.
+local function ChooseBoxForSend()
+    if ChatFrameUtil and ChatFrameUtil.ChooseBoxForSend then
+        return ChatFrameUtil.ChooseBoxForSend()
+    end
+    if ChatEdit_ChooseBoxForSend then
+        return ChatEdit_ChooseBoxForSend()
+    end
+    return nil
+end
+
+local function SetLastActiveWindow(editBox)
+    if not editBox then return end
+    if ChatFrameUtil and ChatFrameUtil.SetLastActiveWindow then
+        ChatFrameUtil.SetLastActiveWindow(editBox)
+    elseif ChatEdit_SetLastActiveWindow then
+        ChatEdit_SetLastActiveWindow(editBox)
+    end
+end
+
+local function ActivateChat(editBox)
+    if not editBox then return end
+    if ChatFrameUtil and ChatFrameUtil.ActivateChat then
+        ChatFrameUtil.ActivateChat(editBox)
+    elseif ChatEdit_ActivateChat then
+        ChatEdit_ActivateChat(editBox)
+    end
+end
+
 -- Resolve the current numbered-channel id for a channel name.
 -- Channel ids can change between zones/sessions, so cycling looks them up by name.
 local function GetNumberedChannelIdByName(name)
@@ -149,6 +187,9 @@ function ChatBar:Initialize()
     -- Session-only channel history for cycling (intentionally not persisted)
     self.channelHistory = {}
     self.cycleIndex = 1
+
+    -- The remembered channel selection, unlike the history, does persist.
+    self.activeChannel = self:GetSettings().activeChannel
 
     -- Just setup UI
     self:CreateBarFrame()
@@ -179,20 +220,115 @@ function ChatBar:MergeDefaults(target, defaults)
     end
 end
 
+-- The texture-file skins the design engine replaced, mapped onto the theme and
+-- shape that reproduce them most closely.
+local SKIN_MIGRATION = {
+    Default = { theme = "Flat",  buttonShape = "square" },
+    Round   = { theme = "Glass", buttonShape = "circle" },
+    -- The old Minimal skin was letters on a bare plate. Flat is what that
+    -- became: the plate is still nearly invisible at rest, and the accent
+    -- underline it was built around is now part of the theme.
+    Minimal = { theme = "Flat",  buttonShape = "square" },
+}
+
+-- Shapes a *profile* may name. "rounded" is absent on purpose: it is a theme's
+-- own outline rather than a player choice, so a stored "rounded" is stale and
+-- gets cleared back to whatever the active theme draws.
+local VALID_SHAPES = { square = true, circle = true }
+
+-- Repair appearance settings that no longer name anything real.
+--
+-- Runs on every load rather than only on a version bump: a theme can be renamed
+-- or dropped between releases, and a profile still pointing at it would leave
+-- the settings dropdown displaying a value the engine silently ignores. Repairs
+-- are written back into the profile so what is saved matches what is drawn.
+function ChatBar:ValidateProfile(profile)
+    if not (profile.theme and ns.ThemeRegistry[profile.theme]) then
+        profile.theme = ns.Defaults.theme
+    end
+
+    if not VALID_SHAPES[profile.buttonShape] then
+        profile.buttonShape = ns.Defaults.buttonShape
+    end
+
+    if profile.accent and ns.Theme and not ns.Theme:IsAccentAvailable(profile.accent) then
+        profile.accent = ns.Defaults.accent
+    end
+
+    -- A custom accent with no stored colour would resolve to the fallback on
+    -- every read while still claiming to be custom in the UI.
+    if profile.accent == "custom" and type(profile.accentColor) ~= "table" then
+        profile.accent = ns.Defaults.accent
+    end
+
+    -- Also catches ids retired between releases, which would otherwise leave the
+    -- dropdown blank over a face the engine had already fallen back from.
+    if profile.font and ns.Theme and not ns.Theme:IsFontAvailable(profile.font) then
+        profile.font = ns.Defaults.font
+    end
+
+    local opacity = tonumber(profile.backgroundOpacity)
+    if not opacity then
+        profile.backgroundOpacity = ns.Defaults.backgroundOpacity
+    else
+        -- A stored 0 would render every surface invisible with no obvious cause,
+        -- so the floor keeps the bar findable.
+        profile.backgroundOpacity = math.max(0.05, math.min(1, opacity))
+    end
+
+    if profile.backgroundColor ~= nil and type(profile.backgroundColor) ~= "table" then
+        profile.backgroundColor = nil
+    end
+end
+
+-- Bring a saved profile up to the current settings schema. Runs before defaults
+-- are merged in, so a migrated value is not shadowed by a fresh default.
+function ChatBar:MigrateProfile(profile)
+    if type(profile) ~= "table" then return end
+
+    local version = profile.version or 1
+
+    -- v3: skins became themes. Carry the player's chosen look across rather
+    -- than silently resetting everyone to the default.
+    if version < 3 then
+        if profile.skinName and not profile.theme then
+            local mapped = SKIN_MIGRATION[profile.skinName]
+            if mapped then
+                profile.theme = mapped.theme
+                profile.buttonShape = mapped.buttonShape
+            end
+        end
+        profile.skinName = nil
+    end
+
+    profile.version = ns.Defaults.version
+
+    self:ValidateProfile(profile)
+end
+
+-- Apply a theme's default font size, used on first install and when the player
+-- picks a theme whose text scale differs from the one they were on.
+function ChatBar:ApplyThemeFontDefault(profile)
+    local theme = ns.Theme and ns.Theme:Get(profile.theme or ns.Defaults.theme)
+    if theme and theme.layout and theme.layout.defaultFontSize then
+        profile.fontSize = theme.layout.defaultFontSize
+    end
+end
+
 -- Create main bar frame
 function ChatBar:CreateBarFrame()
     if barFrame then return end
     
-    -- Load the default skin
+    -- Load the player's theme
     local settings = self:GetSettings()
-    ns.Textures:LoadSkin(settings.skinName)
-    
+    ns.Design:LoadTheme(settings.theme)
+
     barFrame = CreateFrame("Frame", "ChatBarFrame", UIParent)
     barFrame:SetFrameStrata("MEDIUM")
     barFrame:SetSize(100, 40) -- Will be resized based on buttons
-    
-    -- Create bar textures using skin system
-    ns.Textures:CreateBarTextures(barFrame)
+
+    -- Build the bar's themed surfaces
+    ns.Design:BuildBar(barFrame)
     
     -- Set initial position (will be overridden by saved position if exists)
     if settings.barPosition then
@@ -216,24 +352,27 @@ function ChatBar:CreateBarFrame()
         local settings = ChatBar:GetSettings()
         if not settings.lockPosition then
             self:StopMovingOrSizing()
-            -- Save position
+            -- Save position, snapped to the pixel grid so the bar lands in the
+            -- same place after a reload instead of drifting a pixel at a time.
             local point, _, relativePoint, x, y = self:GetPoint()
             settings.barPosition = {
                 point = point,
                 relativePoint = relativePoint,
-                x = x,
-                y = y
+                x = ns.Pixel.Snap(x),
+                y = ns.Pixel.Snap(y)
             }
+            self:ClearAllPoints()
+            self:SetPoint(point, UIParent, relativePoint, settings.barPosition.x, settings.barPosition.y)
         end
     end)
     
     barFrame:Show()
 end
 
--- Refresh bar textures from current skin
+-- Repaint the bar from the current theme
 function ChatBar:RefreshBarTextures()
     if not barFrame then return end
-    ns.Textures:RefreshBarTextures(barFrame)
+    ns.Design:StyleBar(barFrame)
 end
 
 -- Setup chat frame hooks
@@ -244,7 +383,24 @@ function ChatBar:SetupChatFrameHooks()
             chatFrame.editBox:HookScript("OnEditFocusGained", function(editBox)
                 self:OnChatFrameFocusGained(chatFrame)
             end)
+
         end
+    end
+
+    -- PositionBar pins the bar to UIParent on the pixel grid rather than
+    -- live-anchoring it to the chat frame, so it needs a nudge whenever the
+    -- player moves or resizes a chat window.
+    --
+    -- Deferred by a frame on purpose: this hook fires inside Blizzard's dock
+    -- bookkeeping, and running insecure layout work synchronously in that chain
+    -- can taint the dock state the secure whisper-window path later reads.
+    if not self.chatPositionHooked and FCF_SavePositionAndDimensions then
+        self.chatPositionHooked = true
+        hooksecurefunc("FCF_SavePositionAndDimensions", function()
+            C_Timer.After(0, function()
+                ChatBar:PositionBar()
+            end)
+        end)
     end
 end
 
@@ -276,6 +432,12 @@ function ChatBar:PositionBar()
     else -- vertical
         barFrame:SetPoint("TOPLEFT", currentChatFrame, "TOPRIGHT", 4, -24)
     end
+
+    -- The chat frame sits wherever the player dragged it, which is rarely a
+    -- whole pixel. Anchoring straight to it hands that fractional origin to
+    -- every button and label in the bar, and small text rendered off-grid goes
+    -- soft. Re-anchor to UIParent on the grid instead, keeping the same spot.
+    ns.Pixel.SnapFrame(barFrame)
 end
 
 -- Register events using self[event] pattern
@@ -419,8 +581,8 @@ function ChatBar:FlashButton(button)
         self:StopFlashButton(button)
     end
     
-    -- Start flash using Textures module
-    ns.Textures:StartFlash(button)
+    -- Start the themed alert pulse
+    ns.Design:StartAlert(button)
     button.flashStopTime = GetTime() + duration
     
     -- Set up timer to stop flashing after duration
@@ -438,8 +600,8 @@ function ChatBar:StopFlashButton(button)
     
     button.flashStopTime = nil
     
-    -- Stop flash using Textures module
-    ns.Textures:StopFlash(button)
+    -- Stop the themed alert pulse
+    ns.Design:StopAlert(button)
     
     -- Cancel timer if it exists
     if button.flashTimer then
@@ -525,8 +687,11 @@ function ChatBar:UpdateButtons()
     
     local settings = self:GetSettings()
     
-    -- Hide all existing buttons
+    -- Hide all existing buttons. Stopping the alert first matters: a pooled
+    -- button that goes out of service mid-pulse would otherwise keep its ticker
+    -- running and carry the old channel's alert state into its next channel.
     for _, button in pairs(activeButtons) do
+        self:StopFlashButton(button)
         button:Hide()
     end
     wipe(activeButtons)
@@ -577,173 +742,131 @@ function ChatBar:GetOrCreateButton(index)
     
     local button = CreateFrame("Button", "ChatBarButton" .. index, barFrame)
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    
-    -- Create font string with standard WoW font (supports all locales including Cyrillic)
-    local text = button:CreateFontString(nil, "OVERLAY")
-    button.text = text
-    text:SetFont(STANDARD_TEXT_FONT, 12, "")
-    text:SetPoint("CENTER", button, "CENTER", 0, 0)
-    text:SetJustifyH("CENTER")
-    text:SetJustifyV("MIDDLE")
-    text:SetTextColor(1, 1, 1, 1)
-    text:SetShadowColor(0, 0, 0, 1)
-    text:SetShadowOffset(1, -1)
-    
-    -- Flash state tracking (animation created by Textures module)
+
+    -- Flash state tracking; the pulse itself belongs to the design engine
     button.isFlashing = false
     button.flashStopTime = nil
-    
-    -- Scripts
+
+    -- Scripts are set before Design builds the button, so the engine's own
+    -- hover and press hooks compose on top of these rather than replacing them.
     button:SetScript("OnClick", function(self, mouseButton)
         ChatBar:OnButtonClick(self, mouseButton)
     end)
-    
+
     button:SetScript("OnEnter", function(self)
         ChatBar:OnButtonEnter(self)
     end)
-    
+
     button:SetScript("OnLeave", function(self)
         ChatBar:OnButtonLeave(self)
     end)
-    
+
+    -- Builds the texture stack and the label (exposed as button.text)
+    ns.Design:BuildButton(button)
+
     buttonPool[index] = button
     return button
 end
 
+-- The glyph shown on a button: the channel number, or the first character of
+-- the localized channel name.
+function ChatBar:GetButtonGlyph(channelData)
+    local L = ns.L
+
+    if channelData.isNumbered then
+        return tostring(channelData.id)
+    end
+
+    local info = ns.ChannelInfo[channelData.channelType]
+    if not (info and info.labelKey) then return "?" end
+
+    local label = L[info.labelKey]
+    if type(label) ~= "string" or #label == 0 then return "?" end
+
+    -- Match one whole UTF-8 sequence, not one byte: Cyrillic and Korean names
+    -- would otherwise be sliced mid-character.
+    return (label:match("^([%z\1-\127\194-\244][\128-\191]*)") or "?"):upper()
+end
+
+-- The colour a channel should carry.
+--
+-- Numbered channels are resolved per-slot ("CHANNEL1", "CHANNEL2", ...) rather
+-- than through the generic "CHANNEL" entry, so anything that wants to colour
+-- them the way the chat window does still can. The design engine deliberately
+-- does not: it is passed `numbered` alongside this colour and drops it, because
+-- a row of digits reads better as one neutral group than as four arbitrary
+-- hues competing with the named channels around them.
+-- Slots past the ones Blizzard defines fall back to the generic colour.
+function ChatBar:GetChannelColor(channelData)
+    if channelData.isNumbered then
+        return ChatTypeInfo["CHANNEL" .. tostring(channelData.id)] or ChatTypeInfo.CHANNEL
+    end
+    return ChatTypeInfo[channelData.channelType]
+end
+
+-- True when this is the channel the edit box is currently pointed at.
+function ChatBar:IsActiveChannel(channelData)
+    return self.activeChannel ~= nil and self:IsSameChannel(self.activeChannel, channelData)
+end
+
 -- Setup button for a channel
 function ChatBar:SetupButton(button, channelData)
-    local L = ns.L
     local settings = self:GetSettings()
-    local skin = ns.Textures:GetCurrentSkin()
-    
+
     button.channelData = channelData
-    local buttonSize = settings.buttonSize or 24
-    button:SetSize(buttonSize, buttonSize)
-    
-    -- Get chat color for this channel
-    local chatType = channelData.isNumbered and "CHANNEL" or channelData.channelType
-    local chatColor = ChatTypeInfo[chatType]
-    
-    -- Check if we need to recreate textures
-    local sizeChanged = button.textureSize and button.textureSize ~= buttonSize
-    local skinShape = skin.shape or "square"
-    local shapeChanged = button.currentShape and button.currentShape ~= skinShape
-    local currentSkinName = settings.skinName or "Default"
-    local skinChanged = button.currentSkin and button.currentSkin ~= currentSkinName
-    
-    if sizeChanged or shapeChanged or skinChanged or not button.bgTexture then
-        -- Clean up old textures
-        ns.Textures:CleanupButton(button)
-        
-        -- Create new textures using skin system
-        ns.Textures:CreateButtonLayers(button, buttonSize)
-        
-        button.currentShape = skinShape
-        button.currentSkin = currentSkinName
-    elseif button.textureSize ~= buttonSize then
-        -- Just resize existing textures
-        ns.Textures:ResizeButtonTextures(button, buttonSize)
-    end
-    
-    -- Apply channel color to textures
-    if chatColor then
-        ns.Textures:ApplyChannelColor(button, chatColor)
-    end
-    
-    -- Apply font settings using standard WoW font (supports all locales)
-    -- settings.fontSize is updated on skin switch to skin's default
-    local fontSize = settings.fontSize or skin.fontSize or 12
-    button.text:SetFont(STANDARD_TEXT_FONT, fontSize, "")
-    
-    -- Apply text shadow based on skin
-    if skin.textShadow then
-        button.text:SetShadowColor(0, 0, 0, 1)
-        button.text:SetShadowOffset(1, -1)
-    else
-        button.text:SetShadowOffset(0, 0)
-    end
-    
-    -- Position text based on settings
-    button.text:ClearAllPoints()
-    if settings.textPosition == "above" then
-        button.text:SetPoint("BOTTOM", button, "TOP", 0, 2)
-    else
-        button.text:SetPoint("CENTER", button, "CENTER", 0, 0)
-    end
-    
-    -- Set text color (use channel color for visibility)
-    if chatColor then
-        -- Use slightly brightened channel color for text
-        local brightness = 1.3
-        button.text:SetTextColor(
-            math.min(chatColor.r * brightness, 1),
-            math.min(chatColor.g * brightness, 1),
-            math.min(chatColor.b * brightness, 1),
-            1
-        )
-    else
-        button.text:SetTextColor(1, 1, 1, 1)
-    end
-    button.text:Show()
-    
-    -- Set button text
-    if channelData.isNumbered then
-        button.text:SetText(tostring(channelData.id))
-    else
-        local info = ns.ChannelInfo[channelData.channelType]
-        if info and info.labelKey then
-            local label = L[info.labelKey]
-            local firstChar = "?"
-            if label and type(label) == "string" and #label > 0 then
-                -- Extract first UTF-8 character
-                firstChar = (label:match("^([%z\1-\127\194-\244][\128-\191]*)") or "?"):upper()
-            end
-            button.text:SetText(firstChar)
-        else
-            button.text:SetText("?")
-        end
-    end
-    
-    -- Set enabled state
+
+    local chatColor = self:GetChannelColor(channelData)
     local available = channelData.isNumbered or self:IsChannelAvailable(channelData.channelType)
+
+    button.text:SetText(self:GetButtonGlyph(channelData))
+
+    ns.Design:StyleButton(button, {
+        size = settings.buttonSize or 24,
+        channelColor = chatColor,
+        numbered = channelData.isNumbered,
+        fontSize = settings.fontSize or ns.Design:GetDefaultFontSize(),
+        textPosition = settings.textPosition,
+        orientation = settings.orientation,
+        enabled = available,
+        active = self:IsActiveChannel(channelData),
+    })
+
     button:SetEnabled(available)
-    button:SetAlpha(available and 1.0 or 0.5)
 end
 
 -- Layout buttons based on orientation
 function ChatBar:LayoutButtons()
     if #activeButtons == 0 then return end
     
+    local Pixel = ns.Pixel
     local settings = self:GetSettings()
-    local skin = ns.Textures:GetCurrentSkin()
-    
-    local padding = skin.barPadding or 6
-    local spacing = skin.buttonSpacing or 1
+
+    local padding = ns.Design:GetPadding()
+    local spacing = ns.Design:GetSpacing()
     local buttonSize = settings.buttonSize or 24
-    
+    local count = #activeButtons
+
     if settings.orientation == "horizontal" then
-        -- Horizontal layout
-        local totalWidth = (buttonSize * #activeButtons) + (spacing * (#activeButtons - 1)) + (padding * 2)
+        local totalWidth = (buttonSize * count) + (spacing * (count - 1)) + (padding * 2)
         local totalHeight = buttonSize + (padding * 2)
-        
-        barFrame:SetSize(totalWidth, totalHeight)
-        
+
+        Pixel.Size(barFrame, totalWidth, totalHeight)
+
         for i, button in ipairs(activeButtons) do
             button:ClearAllPoints()
             local xOffset = padding + ((i - 1) * (buttonSize + spacing))
-            button:SetPoint("LEFT", barFrame, "LEFT", xOffset, 0)
+            Pixel.Point(button, "TOPLEFT", barFrame, "TOPLEFT", xOffset, -padding)
         end
     else
-        -- Vertical layout
         local totalWidth = buttonSize + (padding * 2)
-        local totalHeight = (buttonSize * #activeButtons) + (spacing * (#activeButtons - 1)) + (padding * 2)
-        
-        barFrame:SetSize(totalWidth, totalHeight)
-        
+        local totalHeight = (buttonSize * count) + (spacing * (count - 1)) + (padding * 2)
+
+        Pixel.Size(barFrame, totalWidth, totalHeight)
+
         for i, button in ipairs(activeButtons) do
             button:ClearAllPoints()
             local yOffset = -padding - ((i - 1) * (buttonSize + spacing))
-            button:SetPoint("TOP", barFrame, "TOP", 0, yOffset)
+            Pixel.Point(button, "TOP", barFrame, "TOP", 0, yOffset)
         end
     end
 end
@@ -784,7 +907,7 @@ function ChatBar:QuickReplyLastWhisper(chatFrame, preservedText)
     local editBox = chatFrame.editBox
     if editBox then
         if not editBox:IsShown() then
-            ChatEdit_ActivateChat(editBox)
+            ActivateChat(editBox)
         end
         if preservedText and preservedText ~= "" then
             editBox:SetText(preservedText)
@@ -812,7 +935,16 @@ function ChatBar:ActivateChannel(channelData, opts)
     if opts.preserveText then
         local editBox = chatFrame.editBox
         if editBox and editBox:IsShown() then
-            preservedText = editBox:GetText() or ""
+            local text = editBox:GetText()
+            -- Secret Values (12.0): a whisper edit box can hand back a protected
+            -- string. Both `#text` and concatenating it error on one, so the
+            -- guard has to come before any other use of the value.
+            if issecretvalue and issecretvalue(text) then
+                text = nil
+            end
+            if type(text) == "string" then
+                preservedText = text
+            end
         end
     end
 
@@ -880,11 +1012,41 @@ function ChatBar:ActivateChannel(channelData, opts)
         end
     end
 
-    if switched and opts.record then
-        self:RecordChannelHistory(channelData)
+    if switched then
+        self:SetActiveChannel(channelData)
+
+        if opts.record then
+            self:RecordChannelHistory(channelData)
+        end
     end
 
     return switched
+end
+
+-- Remember which channel is selected and light up its button.
+--
+-- The selection is saved rather than tied to edit box focus: the player picked
+-- a channel, and that choice outlives the moment the input box happens to be
+-- open. It survives a reload for the same reason.
+function ChatBar:SetActiveChannel(channelData)
+    self.activeChannel = channelData
+
+    local settings = self:GetSettings()
+    if channelData then
+        -- Store a plain descriptor, not the live table: the entries carry a
+        -- transient `order` field, and numbered channel ids change between
+        -- zones, so the name is what makes the record durable.
+        settings.activeChannel = {
+            isNumbered = channelData.isNumbered or false,
+            channelType = channelData.channelType,
+            id = channelData.id,
+            name = channelData.name,
+        }
+    else
+        settings.activeChannel = nil
+    end
+
+    self:UpdateActiveButton()
 end
 
 -- Button click handler
@@ -937,23 +1099,36 @@ function ChatBar:ToggleBar()
     print(string.format("%s: %s %s", L.ADDON_NAME, L.MSG_BAR_TOGGLED, settings.barVisible and L.MSG_BAR_SHOWN or L.MSG_BAR_HIDDEN))
 end
 
--- Refresh all button textures (for skin hot-swap)
+-- Repaint every visible button under the current theme (theme or accent swap)
 function ChatBar:RefreshAllButtons()
     for _, button in pairs(activeButtons) do
-        ns.Textures:RefreshButtonTextures(button)
-        -- Reapply channel color
         if button.channelData then
-            local chatType = button.channelData.isNumbered and "CHANNEL" or button.channelData.channelType
-            local chatColor = ChatTypeInfo[chatType]
-            if chatColor then
-                ns.Textures:ApplyChannelColor(button, chatColor)
-            end
+            self:SetupButton(button, button.channelData)
         end
     end
 end
 
--- Refresh the addon (reapply skin, rebuild buttons)
+-- Mark exactly one button as the active channel and clear the rest.
+function ChatBar:UpdateActiveButton()
+    for _, button in pairs(activeButtons) do
+        ns.Design:SetActive(button, button.channelData and self:IsActiveChannel(button.channelData))
+    end
+end
+
+-- Refresh the addon (reload the theme, rebuild buttons)
 function ChatBar:Refresh()
+    local settings = self:GetSettings()
+
+    -- A profile switch can change the theme out from under us, so reload it
+    -- before anything repaints.
+    ns.Design:LoadTheme(settings.theme)
+
+    -- The shape may have changed with the theme; drop cached masks so the next
+    -- style pass rebuilds them rather than reusing a square mask on a circle.
+    for _, button in pairs(buttonPool) do
+        ns.Design:ReleaseButton(button)
+    end
+
     self:RefreshBarTextures()
     self:UpdateButtons()
     self:PositionBar()
@@ -993,20 +1168,16 @@ function ChatBar:HandleSlashCommand(msg)
         if profileMode == "character" then
             ChatBarCharDB = self:CopyTable(ns.Defaults)
             ns.charDB = ChatBarCharDB
-            -- Apply skin's default fontSize after reset
-            local skin = ns.SkinRegistry[ns.charDB.skinName or "Default"]
-            if skin and skin.fontSize then
-                ns.charDB.fontSize = skin.fontSize
-            end
+            self:ApplyThemeFontDefault(ns.charDB)
         else
             ChatBarDB = self:CopyTable(ns.Defaults)
             ns.db = ChatBarDB
-            -- Apply skin's default fontSize after reset
-            local skin = ns.SkinRegistry[ns.db.skinName or "Default"]
-            if skin and skin.fontSize then
-                ns.db.fontSize = skin.fontSize
-            end
+            self:ApplyThemeFontDefault(ns.db)
         end
+        -- The remembered selection lives in the profile that was just replaced;
+        -- drop the in-memory copy too or the accent stays on a stale channel.
+        self.activeChannel = nil
+        ns.Theme:Invalidate()
         self:Refresh()
         -- Refresh config UI to show new values
         if ns.Config and ns.Config.panel then
@@ -1042,9 +1213,9 @@ function ChatBar:SwitchToChannel(channelType)
     end
     
     -- Switch to channel
-    local editBox = ChatEdit_ChooseBoxForSend()
+    local editBox = ChooseBoxForSend()
     if editBox then
-        ChatEdit_SetLastActiveWindow(editBox)
+        SetLastActiveWindow(editBox)
         RefreshEditBoxHeader(editBox)
         
         local chatType = info.command
@@ -1057,7 +1228,7 @@ function ChatBar:SwitchToChannel(channelType)
         RefreshEditBoxHeader(editBox)
         
         if not editBox:IsShown() then
-            ChatEdit_ActivateChat(editBox)
+            ActivateChat(editBox)
         end
 
         -- Record this switch so it can be reached via history cycling
@@ -1177,26 +1348,20 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         if not ChatBarDB then
             ChatBarDB = ChatBar:CopyTable(ns.Defaults)
             ns.db = ChatBarDB
-            -- Apply skin's default fontSize on first install
-            local skin = ns.SkinRegistry[ns.db.skinName or "Default"]
-            if skin and skin.fontSize then
-                ns.db.fontSize = skin.fontSize
-            end
+            ChatBar:ApplyThemeFontDefault(ns.db)
         else
-            -- Merge with defaults for missing keys
+            -- Migrate first: defaults must not shadow a carried-over value.
+            ChatBar:MigrateProfile(ns.db)
             ChatBar:MergeDefaults(ns.db, ns.Defaults)
         end
-        
+
         ns.charDB = ChatBarCharDB or {}
         if not ChatBarCharDB then
             ChatBarCharDB = ChatBar:CopyTable(ns.Defaults)
             ns.charDB = ChatBarCharDB
-            -- Apply skin's default fontSize on first install
-            local skin = ns.SkinRegistry[ns.charDB.skinName or "Default"]
-            if skin and skin.fontSize then
-                ns.charDB.fontSize = skin.fontSize
-            end
+            ChatBar:ApplyThemeFontDefault(ns.charDB)
         else
+            ChatBar:MigrateProfile(ns.charDB)
             ChatBar:MergeDefaults(ns.charDB, ns.Defaults)
         end
         

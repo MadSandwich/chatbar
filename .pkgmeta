@@ -3,6 +3,7 @@ package-as: ChatBar
 # Files and directories to ignore when packaging
 ignore:
   - .git
+  - .claude
   - .github/copilot-instructions.md
   - .github/prompts
   - .github/skills

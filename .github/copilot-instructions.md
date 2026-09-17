@@ -14,15 +14,17 @@ ns.ModuleName = {}         -- Register modules on namespace
 ```
 - `ns` table is shared across all addon files
 - Never pollute `_G` global namespace unless required (keybindings, slash commands)
-- Access shared modules via `ns.ChatBar`, `ns.Textures`, `ns.L`, etc.
+- Access shared modules via `ns.ChatBar`, `ns.Design`, `ns.Theme`, `ns.Pixel`, `ns.L`, etc.
 
 ### 2. File Loading Order (Critical!)
 **`ChatBar.toc`** defines load order—FILES MUST BE ORDERED CORRECTLY:
-1. **Locales/** - Must load first (provides `ns.L` translation table)
-2. **Skins/** - Must load before `Textures.lua` (populates `ns.SkinRegistry`)
-3. **Textures.lua** - Requires skin registry
-4. **ChatBar.lua** - Core logic (references all modules)
-5. **Config.lua** - Settings UI (references ChatBar, Textures, L)
+1. **Locales/** - Must load first (provides `ns.L`; themes reference `L` keys for their names)
+2. **Core/Pixel.lua** - Pixel grid + border primitive, no dependencies
+3. **Core/Theme.lua** - Theme tokens and accent resolution (uses `ns.L`)
+4. **Themes/** - Each file registers itself into `ns.ThemeRegistry`
+5. **Design.lua** - Design engine; captures `ns.Pixel` and `ns.Theme` at load
+6. **ChatBar.lua** - Core logic (references all modules)
+7. **Config.lua** - Settings UI (references ChatBar, Design, Theme, Pixel, L)
 
 **Never change load order without understanding dependencies.**
 
@@ -56,21 +58,31 @@ end
 ```
 Always use `ChatBar:GetSettings()`, never access `ns.db` or `ns.charDB` directly.
 
-### 5. Skin Registry (Plugin Architecture)
-Skins register themselves by populating `ns.SkinRegistry`:
+### 5. Theme Registry (Plugin Architecture)
+There are **no texture files**. Themes are token tables registered into
+`ns.ThemeRegistry`, and `ns.Design` paints frames from those tokens using
+`SetColorTexture` / `SetGradient`:
 ```lua
--- In Skins/Default/skin.lua:
-ns.SkinRegistry["Default"] = {
-    name = "Default",
-    author = "ChatBar Team",
-    shape = "square",
-    textures = { button_bg = "button_bg", ... },
-    colors = { background = {r=0.12, g=0.12, b=0.12, a=0.85}, ... }
+-- In Themes/Flat.lua:
+ns.ThemeRegistry["Flat"] = {
+    order = 1,
+    nameKey = "THEME_FLAT",       -- resolved through ns.L
+    descKey = "THEME_FLAT_DESC",
+    layout = { barPadding = 4, buttonSpacing = 2, defaultShape = "square", defaultFontSize = 12 },
+    bar    = { show = true, fill = { 0.04, 0.05, 0.07, 0.72 }, border = { 1, 1, 1, 0.08 } },
+    button = { fill = { 0.06, 0.09, 0.12, 0.60 }, channelTint = "stripe", ... },
+    label  = { source = "white", alpha = 0.62, alphaHover = 0.88, ... },
+    active = { indicator = "underline", size = 2, color = { 1, 1, 1, 1, accent = true } },
+    alert  = { style = "stripe", ... },
 }
 ```
-- Skins are hot-swappable at runtime
-- Textures module (`ns.Textures`) loads skins and applies to frames
-- Adding new skin: Create folder in `Skins/`, add `skin.lua`, register in TOC before `Textures.lua`
+- A colour token is `{ r, g, b, a }`, optionally carrying `accent = true` or
+  `channel = true` (the literal r,g,b then act as the fallback), plus
+  `lighten` / `darken`. `ns.Theme:Resolve(token, channelColor)` resolves it.
+- Themes are hot-swappable at runtime; `ns.Theme:NotifyChanged(reason)` repaints
+  everything already on screen.
+- Adding a theme: create `Themes/Name.lua`, register in TOC **before**
+  `Design.lua`, add `THEME_NAME` / `THEME_NAME_DESC` locale keys.
 
 ### 6. Localization with Fallback
 Translation system uses metatable fallback:
@@ -89,7 +101,13 @@ L.CHAT_SAY = "Say"  -- In Locales.lua (English base)
 - Always use `ns.L.KEY_NAME` for user-facing text
 - **Exception:** Keybinding names must be in `_G` (WoW requirement): `_G["BINDING_NAME_CHATBAR_TOGGLE"]`
 
-### 7. Button Pooling Pattern
+### 7. Pixel-Perfect Borders
+Never use `BackdropTemplate` for thin borders. `ns.Pixel.CreateBorder(frame, r, g, b, a)`
+builds four `WHITE8X8` strips sized to `768 / screenHeight / effectiveScale`, with
+`SetSnapToPixelGrid(false)` so a 1px edge never rounds away. Borders re-snap
+automatically on `UI_SCALE_CHANGED` and `DISPLAY_SIZE_CHANGED`.
+
+### 8. Button Pooling Pattern
 Reuses button frames for performance:
 ```lua
 local buttonPool = {}    -- All created buttons
@@ -120,10 +138,14 @@ editBox:SetAttribute("chatType", "CHANNEL")
 editBox:SetAttribute("channelTarget", channelId)
 ChatEdit_UpdateHeader(editBox)
 
--- Read/write text:
+-- Read/write text. Secret Values (12.0): a whisper edit box can return a
+-- protected string, and #text, concatenation and comparison all error on one,
+-- so the guard must come before any other use of the value.
 local text = editBox:GetText()
-editBox:SetText("new text")
-editBox:SetCursorPosition(#text)
+if issecretvalue and issecretvalue(text) then text = nil end
+if type(text) == "string" then
+    editBox:SetCursorPosition(#text)
+end
 ```
 
 ### Frame Creation and Textures
@@ -133,12 +155,17 @@ local frame = CreateFrame("Frame", "UniqueName", parent)
 frame:SetSize(100, 30)
 frame:SetPoint("CENTER")
 
--- Add textures:
+-- Add textures. This addon ships no image files: every surface is WHITE8X8
+-- painted with a colour or a gradient. Solids go through SetGradient too, with
+-- both stops equal -- SetColorTexture does NOT clear a gradient set earlier on
+-- the same texture, so mixing the two APIs leaves a stale gradient multiplying
+-- the new colour.
 local texture = frame:CreateTexture(nil, "BACKGROUND")
 texture:SetAllPoints()
-texture:SetTexture("Interface\\AddOns\\ChatBar\\Skins\\Default\\button_bg")
-texture:SetVertexColor(0.5, 0.5, 0.5, 1.0)  -- RGBA tinting
+texture:SetTexture("Interface\\Buttons\\WHITE8X8")
+texture:SetGradient("VERTICAL", CreateColor(0, 0, 0, 0.9), CreateColor(0.1, 0.1, 0.1, 0.6))
 ```
+Prefer `ns.Design` for anything the bar draws; go direct only inside the engine.
 
 ### Hooking Blizzard Functions
 ```lua
@@ -152,7 +179,7 @@ end)
 
 ### Adding New Settings
 1. Add to `ns.Defaults` in [ChatBar.lua#L14-L58](d:\Projects\chatbar\ChatBar.lua#L14-L58)
-2. Create UI controls in [Config.lua](d:\Projects\chatbar\Config.lua) using `Settings.RegisterVerticalLayoutCategory()`
+2. Create UI controls in [Config.lua](d:\Projects\chatbar\Config.lua). The panel is a canvas registered with `Settings.RegisterCanvasLayoutCategory()`; use `DropdownButton` + `WowStyle1DropdownTemplate` for dropdowns, never `UIDropDownMenuTemplate`
 3. Access via `ChatBar:GetSettings().yourSettingName`
 4. Settings auto-save to `ChatBarDB` or `ChatBarCharDB`
 
@@ -210,9 +237,11 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 
 ## Key Files Reference
 
-- **[ChatBar.lua](d:\Projects\chatbar\ChatBar.lua)** (952 lines) - Core logic, event handlers, button management
-- **[Textures.lua](d:\Projects\chatbar\Textures.lua)** (605 lines) - Skin system, texture loading, button styling
-- **[Config.lua](d:\Projects\chatbar\Config.lua)** (486 lines) - Settings UI using modern Settings API
+- **[ChatBar.lua](d:\Projects\chatbar\ChatBar.lua)** - Core logic, event handlers, button management
+- **[Design.lua](d:\Projects\chatbar\Design.lua)** - Design engine: builds and paints the bar and buttons, owns the visual state machine
+- **[Core/Pixel.lua](d:\Projects\chatbar\Core\Pixel.lua)** - Pixel grid, snapping helpers, 1px border primitive
+- **[Core/Theme.lua](d:\Projects\chatbar\Core\Theme.lua)** - Theme tokens, accent resolution, colour helpers
+- **[Config.lua](d:\Projects\chatbar\Config.lua)** - Settings UI using modern Settings API
 - **[ChatBar.toc](d:\Projects\chatbar\ChatBar.toc)** - Addon manifest, file load order, metadata
 - **[Locales/Locales.lua](d:\Projects\chatbar\Locales\Locales.lua)** - Base English translations
 - **[Bindings.xml](d:\Projects\chatbar\Bindings.xml)** - Keybinding definitions
@@ -226,11 +255,12 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 4. Add keybinding in [Bindings.xml](d:\Projects\chatbar\Bindings.xml)
 5. Add checkbox in [Config.lua](d:\Projects\chatbar\Config.lua) channel section
 
-### Adding a New Skin
-1. Create `Skins/SkinName/skin.lua`
-2. Register in TOC before `Textures.lua` line
-3. Populate `ns.SkinRegistry["SkinName"]` with texture paths and colors
-4. Add texture files (TGA/BLP) to skin folder if not using color fallbacks
+### Adding a New Theme
+1. Create `Themes/ThemeName.lua`
+2. Register in TOC **before** the `Design.lua` line
+3. Populate `ns.ThemeRegistry["ThemeName"]` -- copy `Themes/Flat.lua` for the full schema
+4. Add `THEME_THEMENAME` / `THEME_THEMENAME_DESC` keys to `Locales/Locales.lua`
+5. No image files: express the look in colour tokens and gradients
 
 ### Adding a Setting
 1. Add to `ns.Defaults` with sensible default value
@@ -239,7 +269,19 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 4. Hook control's OnClick/OnValueChanged to update `ChatBar:GetSettings()`
 
 ## Version Information
-- **WoW Version:** 12.0.5+ (Midnight expansion)
-- **Lua Version:** Lua 5.1 (WoW's embedded version)
-- **Addon Version:** 2.2.1
-- **API Level:** 120000, 120001, 120005 (Retail only, no Classic support)
+- **WoW Version:** 12.1+ (Midnight expansion)
+- **Lua Version:** Lua 5.1 (WoW's embedded version -- no `goto`, no bitwise operators, no integer division)
+- **Addon Version:** 3.0.0
+- **API Level:** 120000, 120001, 120005, 120007, 120100 (Retail only, no Classic support)
+
+### 12.x constraints that touch this addon
+- **Secret Values**: `editBox:GetText()` on a whisper edit box can return a
+  protected string. Guard with `issecretvalue(text)` *before* `#text`,
+  concatenation, or comparison -- all of them error on a secret.
+- **`editBox:UpdateHeader()`** runs width math over secret whisper-name geometry.
+  It is safe on the hardware-driven click path this addon uses; do not call it
+  from inside a hook on Blizzard's own temporary-window creation chain.
+- **`UIDropDownMenuTemplate`** is deprecated (11.0) and `EasyMenu` was removed.
+  Use `DropdownButton` + `WowStyle1DropdownTemplate` with `MenuUtil`.
+- The combat-log and aura restrictions that broke WeakAuras do not apply here --
+  this addon reads no combat state.
