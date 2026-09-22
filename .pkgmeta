@@ -8,6 +8,7 @@ ignore:
   - .github/prompts
   - .github/skills
   - .vscode
+  - .luals
   - README.md
   - .gitignore
 

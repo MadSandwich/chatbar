@@ -271,7 +271,7 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 ## Version Information
 - **WoW Version:** 12.1+ (Midnight expansion)
 - **Lua Version:** Lua 5.1 (WoW's embedded version -- no `goto`, no bitwise operators, no integer division)
-- **Addon Version:** 3.0.0
+- **Addon Version:** 3.0.1
 - **API Level:** 120000, 120001, 120005, 120007, 120100 (Retail only, no Classic support)
 
 ### 12.x constraints that touch this addon

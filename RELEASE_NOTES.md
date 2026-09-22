@@ -1,5 +1,18 @@
 # ChatBar Release Notes
 
+## 3.0.1
+
+- **Fixed doubled checkbox and radio-button labels in the options panel.**
+  `UICheckButtonTemplate` / `UIRadioButtonTemplate` already supply a label
+  FontString; the panel was creating a second one on top of it. The template's
+  own label is now restyled instead of being shadowed.
+- **Removed the pre-Settings-API fallbacks** (`InterfaceOptions_AddCategory`,
+  `InterfaceOptionsFrame_OpenToCategory`), which no longer exist on supported
+  clients.
+- Dropped the `L.KEY or "English fallback"` pattern across the options panel --
+  the locale table already fills every key from enUS -- and added type
+  annotations so the addon checks clean under the Lua language server.
+
 ## 3.0.0 (Design Rework)
 
 - **Replaced the texture-file skin system with a code-driven theme engine.** The

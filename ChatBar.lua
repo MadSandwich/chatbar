@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.0.0"
+ChatBar.VERSION = "3.0.1"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
@@ -935,6 +935,9 @@ function ChatBar:ActivateChannel(channelData, opts)
     if opts.preserveText then
         local editBox = chatFrame.editBox
         if editBox and editBox:IsShown() then
+            -- GetText() is annotated as returning a plain string; the secret-value
+            -- guard below deliberately clears it, so widen the local to string|nil.
+            ---@type string?
             local text = editBox:GetText()
             -- Secret Values (12.0): a whisper edit box can hand back a protected
             -- string. Both `#text` and concatenating it error on one, so the
