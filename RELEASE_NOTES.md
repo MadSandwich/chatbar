@@ -1,5 +1,21 @@
 # ChatBar Release Notes
 
+## 3.1.0
+
+- **Added support for World of Warcraft: Forever** (1.60.1). Forever runs on the
+  Midnight client codebase rather than the Classic one, so the whole addon ports
+  across unchanged -- `ChatFrameUtil`, the Settings API, the 11.0 menu system and
+  the atlas probing all behave exactly as they do on Retail.
+- **Added support for Classic Era** (1.15.9) **and Mists of Pandaria Classic**
+  (5.5.4). Blizzard has unified the chat UI across flavors: `ChatFrameUtil`, every
+  chat type ChatBar exposes, `LE_PARTY_CATEGORY_INSTANCE`, the options-panel
+  widget templates and `ColorPickerFrame:SetupColorPickerAndShow` all exist on
+  the Classic clients, so the port needed one compatibility guard rather than a
+  parallel code path.
+- **Battleground availability now resolves on every flavor.**
+  `C_PvP.IsActiveBattlefield` is Retail/Forever only; the Classic clients fall
+  back to the instance type, which all of them report identically.
+
 ## 3.0.1
 
 - **Fixed doubled checkbox and radio-button labels in the options panel.**

@@ -194,7 +194,8 @@ Settings.RegisterAddOnCategory(category)
 ## Testing & Debugging
 
 ### Testing in WoW
-1. Place addon in `World of Warcraft\_retail_\Interface\AddOns\ChatBar\`
+1. Place addon in the client's AddOns folder (`_retail_`, `_classic_era_`,
+   `_classic_`, or Forever's product folder) -- the single TOC loads on all of them
 2. Launch WoW, `/reload` to test changes
 3. Enable Lua errors: ESC → Interface → Help → Display Lua Errors
 4. Use `/chatbar` to open settings
@@ -269,10 +270,34 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 4. Hook control's OnClick/OnValueChanged to update `ChatBar:GetSettings()`
 
 ## Version Information
-- **WoW Version:** 12.1+ (Midnight expansion)
 - **Lua Version:** Lua 5.1 (WoW's embedded version -- no `goto`, no bitwise operators, no integer division)
-- **Addon Version:** 3.0.1
-- **API Level:** 120000, 120001, 120005, 120007, 120100 (Retail only, no Classic support)
+- **Addon Version:** 3.1.0
+- **Supported flavors:** one package, one comma-separated `## Interface:` list.
+
+| Client | Version | Interface | Family |
+| --- | --- | --- | --- |
+| Retail (Midnight) | 12.1.0 | 120100, 120007, 120005 | Mainline |
+| WoW: Forever | 1.60.1 | 16001 | Mainline |
+| Mists Classic | 5.5.4 | 50504 | Classic |
+| Classic Era | 1.15.9 | 11509 | Classic |
+
+### Writing flavor-portable code
+- **Detect capabilities, never versions.** `if C_PvP and C_PvP.IsActiveBattlefield then`
+  is correct; gating on `select(4, GetBuildInfo())` is not. Forever reports
+  **16001**, so a `>= 100000` check silently sends a Mainline client down the
+  Classic path. The existing `OpenChatWithFallback`, `ChatFrameUtil -> ChatEdit_*`
+  and `ShapeAvailable` helpers are the house pattern -- follow them.
+- **Forever is Mainline, not Classic.** `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE`,
+  `[Family]` resolves to `Mainline`, and the API surface matches 12.1. Port from
+  Retail code paths.
+- **Blizzard's chat UI is shared across flavors.** `Blizzard_ChatFrameBase/Shared/`
+  is the same on Classic Era as on Retail, so `ChatFrameUtil`, every chat type and
+  `LE_PARTY_CATEGORY_INSTANCE` are available everywhere.
+- **The only flavor-specific code** is the `BATTLEGROUND` branch of
+  `ChatBar:IsChannelAvailable` -- `C_PvP.IsActiveBattlefield` is Mainline-only.
+- **`.pkgmeta` must not set `enable-toc-creation`.** That strategy requires a
+  `## Interface-<Type>:` line per flavor; the comma-list strategy used here is the
+  alternative. Mixing them silently produces no per-flavor TOCs.
 
 ### 12.x constraints that touch this addon
 - **Secret Values**: `editBox:GetText()` on a whisper edit box can return a

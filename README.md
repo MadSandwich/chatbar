@@ -2,6 +2,22 @@
 
 A lightweight, customizable chat channel switcher addon for World of Warcraft that displays quick-access buttons above your active chat frame.
 
+## Supported Clients
+
+ChatBar ships as a single package that loads on every current flavor:
+
+| Client | Version | Interface |
+| --- | --- | --- |
+| Retail (Midnight) | 12.1.0 | 120100, 120007, 120005 |
+| World of Warcraft: Forever | 1.60.1 | 16001 |
+| Mists of Pandaria Classic | 5.5.4 | 50504 |
+| Classic Era | 1.15.9 | 11509 |
+
+Forever runs on the Midnight client codebase, so it behaves like Retail rather
+than like Classic. The Classic clients share Blizzard's unified chat UI, so the
+only flavor-specific code in ChatBar is the battleground check in
+`ChatBar:IsChannelAvailable`.
+
 ## Release Notes
 
 Release notes are published in [RELEASE_NOTES.md](RELEASE_NOTES.md).

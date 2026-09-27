@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.0.1"
+ChatBar.VERSION = "3.1.0"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
@@ -645,7 +645,13 @@ function ChatBar:IsChannelAvailable(channelType)
     end
     
     if channelType == "BATTLEGROUND" then
-        return C_PvP.IsActiveBattlefield()
+        -- C_PvP.IsActiveBattlefield is Retail/Forever only. The Classic clients
+        -- never got it, so fall back to the instance type, which every flavor
+        -- reports the same way.
+        if C_PvP and C_PvP.IsActiveBattlefield then
+            return C_PvP.IsActiveBattlefield()
+        end
+        return select(2, IsInInstance()) == "pvp"
     end
     
     return false
