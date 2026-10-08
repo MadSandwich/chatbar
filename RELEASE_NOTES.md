@@ -1,5 +1,13 @@
 # ChatBar Release Notes
 
+## 3.1.1
+
+- **Updated for patch 12.1.5** (Interface 120105). No functional changes: the
+  APIs removed in 12.1.5 (the FrameXML math/table helpers that moved to native
+  code, the old `C_PvP` Training Grounds calls, the `Deprecated_*` fallbacks)
+  are not used by ChatBar, and the `ChatFrameUtil` functions it calls are
+  unchanged.
+
 ## 3.1.0
 
 - **Added support for World of Warcraft: Forever** (1.60.1). Forever runs on the

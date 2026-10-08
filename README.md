@@ -8,7 +8,7 @@ ChatBar ships as a single package that loads on every current flavor:
 
 | Client | Version | Interface |
 | --- | --- | --- |
-| Retail (Midnight) | 12.1.0 | 120100, 120007, 120005 |
+| Retail (Midnight) | 12.1.5 | 120105, 120100, 120007, 120005 |
 | World of Warcraft: Forever | 1.60.1 | 16001 |
 | Mists of Pandaria Classic | 5.5.4 | 50504 |
 | Classic Era | 1.15.9 | 11509 |

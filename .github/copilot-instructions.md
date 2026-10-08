@@ -271,12 +271,12 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 
 ## Version Information
 - **Lua Version:** Lua 5.1 (WoW's embedded version -- no `goto`, no bitwise operators, no integer division)
-- **Addon Version:** 3.1.0
+- **Addon Version:** 3.1.1
 - **Supported flavors:** one package, one comma-separated `## Interface:` list.
 
 | Client | Version | Interface | Family |
 | --- | --- | --- | --- |
-| Retail (Midnight) | 12.1.0 | 120100, 120007, 120005 | Mainline |
+| Retail (Midnight) | 12.1.5 | 120105, 120100, 120007, 120005 | Mainline |
 | WoW: Forever | 1.60.1 | 16001 | Mainline |
 | Mists Classic | 5.5.4 | 50504 | Classic |
 | Classic Era | 1.15.9 | 11509 | Classic |

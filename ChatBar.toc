@@ -1,5 +1,5 @@
-# Retail (Midnight) | Forever 1.60.1 | Mists Classic 5.5.4 | Classic Era 1.15.9
-## Interface: 120005, 120007, 120100, 16001, 50504, 11509
+# Retail (Midnight) 12.1.5 | Forever 1.60.1 | Mists Classic 5.5.4 | Classic Era 1.15.9
+## Interface: 120005, 120007, 120100, 120105, 16001, 50504, 11509
 ## Title: ChatBar
 ## Notes: Quick chat channel switcher with a customizable button bar and code-driven themes
 ## Author: Artsem Burlai

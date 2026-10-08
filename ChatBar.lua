@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.1.0"
+ChatBar.VERSION = "3.1.1"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
