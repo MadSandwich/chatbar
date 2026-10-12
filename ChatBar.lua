@@ -8,10 +8,14 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.1.1"
+ChatBar.VERSION = "3.2.0"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
+
+-- Slider ranges, shared by the settings panel and the Edit Mode dialog
+ChatBar.BUTTON_SIZE_MIN, ChatBar.BUTTON_SIZE_MAX = 10, 32
+ChatBar.FONT_SIZE_MIN, ChatBar.FONT_SIZE_MAX = 8, 24
 
 -- Default settings
 ns.Defaults = {
@@ -352,21 +356,39 @@ function ChatBar:CreateBarFrame()
         local settings = ChatBar:GetSettings()
         if not settings.lockPosition then
             self:StopMovingOrSizing()
-            -- Save position, snapped to the pixel grid so the bar lands in the
-            -- same place after a reload instead of drifting a pixel at a time.
-            local point, _, relativePoint, x, y = self:GetPoint()
-            settings.barPosition = {
-                point = point,
-                relativePoint = relativePoint,
-                x = ns.Pixel.Snap(x),
-                y = ns.Pixel.Snap(y)
-            }
-            self:ClearAllPoints()
-            self:SetPoint(point, UIParent, relativePoint, settings.barPosition.x, settings.barPosition.y)
+            ChatBar:SaveBarPosition()
         end
     end)
-    
+
+    -- Retail and Forever: HUD Edit Mode can move the bar too
+    ns.EditMode:Attach(barFrame)
+
     barFrame:Show()
+end
+
+-- Save where the bar sits now, after a drag from either the bar itself or Edit
+-- Mode. Snapped to the pixel grid so the bar lands in the same place after a
+-- reload instead of drifting a pixel at a time.
+function ChatBar:SaveBarPosition()
+    if not barFrame then return end
+
+    local settings = self:GetSettings()
+    local point, _, relativePoint, x, y = barFrame:GetPoint()
+    settings.barPosition = {
+        point = point,
+        relativePoint = relativePoint,
+        x = ns.Pixel.Snap(x),
+        y = ns.Pixel.Snap(y)
+    }
+    barFrame:ClearAllPoints()
+    barFrame:SetPoint(point, UIParent, relativePoint, settings.barPosition.x, settings.barPosition.y)
+end
+
+-- Forget the saved position and put the bar back above the chat window. Placed
+-- even when the bar is locked: this is an explicit request, not a stray drag.
+function ChatBar:ResetBarPosition()
+    self:GetSettings().barPosition = nil
+    self:PositionBar(true)
 end
 
 -- Repaint the bar from the current theme
@@ -411,13 +433,13 @@ function ChatBar:OnChatFrameFocusGained(chatFrame)
 end
 
 -- Position bar relative to active chat frame
-function ChatBar:PositionBar()
+function ChatBar:PositionBar(ignoreLock)
     if not barFrame then return end
-    
+
     local settings = self:GetSettings()
-    
+
     -- Only reposition if position is unlocked and no custom position saved
-    if settings.lockPosition or settings.barPosition then
+    if settings.barPosition or (settings.lockPosition and not ignoreLock) then
         -- Keep current position
         return
     end

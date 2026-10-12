@@ -74,6 +74,10 @@ local function RefreshDropdown(dropdown)
     end
 end
 
+-- Shared with the Edit Mode dialog, so both build their dropdowns one way.
+Config.CreateDropdown = CreateDropdown
+Config.RefreshDropdown = RefreshDropdown
+
 --[[
     Live theme preview
 
@@ -570,14 +574,14 @@ function Config:CreateSettingsPanel()
     
     local fontSizeSlider = CreateFrame("Slider", "ChatBarFontSizeSlider", content, "OptionsSliderTemplate")
     fontSizeSlider:SetPoint("TOPLEFT", fontSizeLabel, "BOTTOMLEFT", 4, -20)
-    fontSizeSlider:SetMinMaxValues(8, 24)
+    fontSizeSlider:SetMinMaxValues(ChatBar.FONT_SIZE_MIN, ChatBar.FONT_SIZE_MAX)
     fontSizeSlider:SetValueStep(1)
     fontSizeSlider:SetObeyStepOnDrag(true)
     fontSizeSlider:SetWidth(120)
-    
+
     -- Set slider labels
-    _G[fontSizeSlider:GetName() .. "Low"]:SetText("8")
-    _G[fontSizeSlider:GetName() .. "High"]:SetText("24")
+    _G[fontSizeSlider:GetName() .. "Low"]:SetText(tostring(ChatBar.FONT_SIZE_MIN))
+    _G[fontSizeSlider:GetName() .. "High"]:SetText(tostring(ChatBar.FONT_SIZE_MAX))
     _G[fontSizeSlider:GetName() .. "Text"]:SetText("12")
     
     fontSizeSlider:SetScript("OnValueChanged", function(self, value)
@@ -597,14 +601,14 @@ function Config:CreateSettingsPanel()
     
     local buttonSizeSlider = CreateFrame("Slider", "ChatBarButtonSizeSlider", content, "OptionsSliderTemplate")
     buttonSizeSlider:SetPoint("TOPLEFT", buttonSizeLabel, "BOTTOMLEFT", 4, -20)
-    buttonSizeSlider:SetMinMaxValues(10, 32)
+    buttonSizeSlider:SetMinMaxValues(ChatBar.BUTTON_SIZE_MIN, ChatBar.BUTTON_SIZE_MAX)
     buttonSizeSlider:SetValueStep(1)
     buttonSizeSlider:SetObeyStepOnDrag(true)
     buttonSizeSlider:SetWidth(120)
-    
+
     -- Set slider labels
-    _G[buttonSizeSlider:GetName() .. "Low"]:SetText("10")
-    _G[buttonSizeSlider:GetName() .. "High"]:SetText("32")
+    _G[buttonSizeSlider:GetName() .. "Low"]:SetText(tostring(ChatBar.BUTTON_SIZE_MIN))
+    _G[buttonSizeSlider:GetName() .. "High"]:SetText(tostring(ChatBar.BUTTON_SIZE_MAX))
     _G[buttonSizeSlider:GetName() .. "Text"]:SetText("18")
     
     buttonSizeSlider:SetScript("OnValueChanged", function(self, value)
@@ -817,7 +821,19 @@ function Config:CreateSettingsPanel()
         local settings = ChatBar:GetSettings()
         settings.lockPosition = self:GetChecked()
     end)
-    
+
+    -- Edit Mode ignores the lock (see EditMode.lua); say so where the lock is
+    -- set, rather than let a locked bar moving there look like a bug.
+    if ns.EditMode:IsSupported() then
+        lockPosition:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(self.text:GetText())
+            GameTooltip:AddLine(L.LOCK_POSITION_EDIT_MODE_HINT, 0.7, 0.7, 0.7, true)
+            GameTooltip:Show()
+        end)
+        lockPosition:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+
     content.lockPosition = lockPosition
     
     -- Store content reference

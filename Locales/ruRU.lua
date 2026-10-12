@@ -73,6 +73,7 @@ L.BUTTON_SIZE = "Размер кнопки:"
 L.TEXT_POSITION = "Положение текста:"
 L.TEXT_POSITION_INSIDE = "Внутри кнопок"
 L.TEXT_POSITION_ABOVE = "Над кнопками"
+L.LOCK_POSITION_EDIT_MODE_HINT = "Режим редактирования может перемещать панель, даже если она закреплена."
 
 -- Override keybinding globals for Russian
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

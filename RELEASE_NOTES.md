@@ -1,5 +1,24 @@
 # ChatBar Release Notes
 
+## 3.2.0
+
+- **The bar can now be moved from HUD Edit Mode** on Retail and Forever. Open
+  Edit Mode and the bar is outlined alongside Blizzard's own frames: click it to
+  select it, drag it to move it. While Edit Mode is open the channel buttons
+  ignore clicks, the same as Blizzard's bars.
+- **Selecting the bar opens its settings**, in a dialog that matches the one
+  Blizzard shows for its own frames: orientation, text position, button size
+  and font size, all applied as you change them. **Reset To Default Position**
+  puts the bar back above the chat window, where it follows the chat window
+  again. Before this, only `/chatbar reset` could undo a move, and it reset
+  everything else too.
+- **The position is saved to your ChatBar profile** the moment you drop the bar.
+  It is not part of an Edit Mode layout, so switching layouts or reverting
+  changes leaves the bar where you put it.
+- **Edit Mode moves the bar even when "Lock bar position" is on.** The lock
+  still stops a stray drag during play; Edit Mode is where you set out to
+  arrange the UI. The lock's tooltip now says so.
+
 ## 3.1.1
 
 - **Updated for patch 12.1.5** (Interface 120105). No functional changes: the

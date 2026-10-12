@@ -73,6 +73,7 @@ L.BUTTON_SIZE = "버튼 크기:"
 L.TEXT_POSITION = "텍스트 위치:"
 L.TEXT_POSITION_INSIDE = "버튼 안"
 L.TEXT_POSITION_ABOVE = "버튼 위"
+L.LOCK_POSITION_EDIT_MODE_HINT = "편집 모드에서는 잠긴 바도 이동할 수 있습니다."
 
 -- Override keybinding globals for Korean
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

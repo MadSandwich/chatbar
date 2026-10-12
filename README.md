@@ -16,7 +16,8 @@ ChatBar ships as a single package that loads on every current flavor:
 Forever runs on the Midnight client codebase, so it behaves like Retail rather
 than like Classic. The Classic clients share Blizzard's unified chat UI, so the
 only flavor-specific code in ChatBar is the battleground check in
-`ChatBar:IsChannelAvailable`.
+`ChatBar:IsChannelAvailable` and the Edit Mode support, which is Retail and
+Forever only.
 
 ## Release Notes
 
@@ -40,6 +41,22 @@ Access via:
 - `/chatbar` or `/cb` command
 - Interface → AddOns → ChatBar
 - Game Menu (ESC) → Interface → AddOns → ChatBar
+
+### Moving the Bar
+
+Until you move it, the bar sits above your chat window and follows it around.
+
+- **Drag it** anywhere. **Lock bar position** in the settings stops that.
+- **Edit Mode** (Retail and Forever): open Edit Mode from the game menu and the
+  bar is outlined along with the rest of the HUD. Drag it to move it; Edit Mode
+  moves the bar even while it is locked. Click it to open its settings:
+  orientation, text position, button size and font size, plus **Reset To Default
+  Position**, which puts the bar back above the chat window.
+
+Either way, the position is saved to your ChatBar profile as soon as you drop the
+bar. It is not part of an Edit Mode layout, so switching layouts or reverting
+changes in Edit Mode leaves the bar where you put it. A bar hidden with
+`/chatbar hide` stays hidden in Edit Mode too.
 
 ### Appearance
 
@@ -122,6 +139,8 @@ ChatBar/
 ├── ChatBar.toc          # Addon manifest
 ├── ChatBar.tga          # Addon icon
 ├── Design.lua           # Design engine: paints the bar and buttons
+├── EditMode.lua         # HUD Edit Mode support (Retail, Forever)
+├── EditModeDialog.lua   # The bar's settings dialog in Edit Mode
 ├── Config.lua           # Settings panel UI
 ├── README.md            # Documentation
 ├── Core/

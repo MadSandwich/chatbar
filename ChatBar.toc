@@ -36,4 +36,6 @@ Design.lua
 
 # Core files
 ChatBar.lua
+EditMode.lua
+EditModeDialog.lua
 Config.lua

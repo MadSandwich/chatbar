@@ -73,6 +73,7 @@ L.BUTTON_SIZE = "Tamaño de botón:"
 L.TEXT_POSITION = "Posición del texto:"
 L.TEXT_POSITION_INSIDE = "Dentro de botones"
 L.TEXT_POSITION_ABOVE = "Sobre botones"
+L.LOCK_POSITION_EDIT_MODE_HINT = "El modo de edición puede mover la barra aunque esté bloqueada."
 
 -- Override keybinding globals for Spanish
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

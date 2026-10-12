@@ -23,3 +23,9 @@ function GameTooltip:SetText(text, colorR, colorG, colorB, alpha, wrap) end
 LE_PARTY_CATEGORY_HOME = 1
 ---@type number
 LE_PARTY_CATEGORY_INSTANCE = 2
+
+--- Edit Mode's "Reset To Default Position" label. A live, localized global
+--- string -- Blizzard's own Edit Mode sets it on every frame's reset button --
+--- but upstream annotates none of the HUD_EDIT_MODE_* strings.
+---@type string
+HUD_EDIT_MODE_RESET_POSITION = "Reset To Default Position"

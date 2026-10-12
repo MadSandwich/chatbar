@@ -82,6 +82,7 @@ L.BUTTON_SIZE = "Button Size:"
 L.TEXT_POSITION = "Text Position:"
 L.TEXT_POSITION_INSIDE = "Inside buttons"
 L.TEXT_POSITION_ABOVE = "Above buttons"
+L.LOCK_POSITION_EDIT_MODE_HINT = "Edit Mode can still move a locked bar."
 L.CHANNEL_HISTORY_DESC = "Enable channel history cycling (assign keys in Key Bindings)"
 
 -- Set globals for keybinding system (must be in global namespace)

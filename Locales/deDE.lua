@@ -73,6 +73,7 @@ L.BUTTON_SIZE = "Schaltflächengröße:"
 L.TEXT_POSITION = "Textposition:"
 L.TEXT_POSITION_INSIDE = "In Schaltflächen"
 L.TEXT_POSITION_ABOVE = "Über Schaltflächen"
+L.LOCK_POSITION_EDIT_MODE_HINT = "Der Bearbeitungsmodus kann eine gesperrte Leiste trotzdem verschieben."
 
 -- Override keybinding globals for German
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

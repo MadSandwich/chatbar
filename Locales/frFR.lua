@@ -73,6 +73,7 @@ L.BUTTON_SIZE = "Taille de bouton:"
 L.TEXT_POSITION = "Position du texte:"
 L.TEXT_POSITION_INSIDE = "Dans les boutons"
 L.TEXT_POSITION_ABOVE = "Au-dessus des boutons"
+L.LOCK_POSITION_EDIT_MODE_HINT = "Le mode Édition peut toujours déplacer une barre verrouillée."
 
 -- Override keybinding globals for French
 _G["BINDING_HEADER_CHATBAR"] = "ChatBar"

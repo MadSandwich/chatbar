@@ -24,7 +24,9 @@ ns.ModuleName = {}         -- Register modules on namespace
 4. **Themes/** - Each file registers itself into `ns.ThemeRegistry`
 5. **Design.lua** - Design engine; captures `ns.Pixel` and `ns.Theme` at load
 6. **ChatBar.lua** - Core logic (references all modules)
-7. **Config.lua** - Settings UI (references ChatBar, Design, Theme, Pixel, L)
+7. **EditMode.lua** - HUD Edit Mode support; `ChatBar:CreateBarFrame` calls `ns.EditMode:Attach`
+8. **EditModeDialog.lua** - The bar's Edit Mode settings dialog, built on first open (uses `ns.Config.CreateDropdown`)
+9. **Config.lua** - Settings UI (references ChatBar, Design, Theme, Pixel, EditMode, L)
 
 **Never change load order without understanding dependencies.**
 
@@ -175,6 +177,34 @@ chatFrame.editBox:HookScript("OnEditFocusGained", function(editBox)
 end)
 ```
 
+### HUD Edit Mode (Retail and Forever)
+[EditMode.lua](d:\Projects\chatbar\EditMode.lua) puts the bar into Blizzard's Edit Mode without
+making it an Edit Mode *system*. Systems are saved into server-side layouts and
+driven through secure code an addon frame cannot join without tainting it.
+- The overlay is an `EditModeSystemSelectionTemplate` frame. Its stock
+  `OnMouseDown` / `OnDragStart` / `OnDragStop` call `EditModeManagerFrame:SelectSystem`
+  and the parent's handlers, which only work for registered systems, so all three
+  are replaced. `SetSystem` gets a stub whose `GetSystemName` feeds the label.
+- Follow `EditModeManagerFrame`'s `OnShow` / `OnHide`, not the `EditMode.Enter` /
+  `EditMode.Exit` callbacks. The frame also hides and reshows when a panel opens
+  over Edit Mode, which the callbacks never report.
+- `EditModeManagerFrame:ClearSelectedSystem()` is safe to call from addon code
+  (it runs through a secure delegate). Never call `SelectSystem` with the bar.
+- The position is the profile's `barPosition`, saved on drop through
+  `ChatBar:SaveBarPosition()`. Edit Mode deliberately ignores `lockPosition`.
+- Selecting the bar opens [EditModeDialog.lua](d:\Projects\chatbar\EditModeDialog.lua). Blizzard's setting
+  widgets (`EditModeSetting*Template`) send every change to
+  `EditModeSystemSettingsDialog:OnSettingValueChanged`, so the dialog is built
+  from the shared templates underneath them instead: `DialogBorderTranslucentTemplate`,
+  `MinimalSliderWithSteppersTemplate`, `WowStyle1DropdownTemplate`. Use
+  `UIPanelCloseButtonNoScripts`, not `UIPanelCloseButton`, whose click goes
+  through `HideUIPanel`.
+- Closing the dialog and deselecting the bar are one action: the dialog's
+  `OnHide` calls `EditMode:Deselect()`, which closes the dialog. Keep
+  `Deselect` before `selection:Hide()`, since `ShowHighlighted()` shows the overlay.
+- Slider ranges live on `ChatBar` (`BUTTON_SIZE_MIN` / `_MAX`, `FONT_SIZE_MIN` /
+  `_MAX`) and are shared by both the settings panel and the dialog.
+
 ## Configuration & Settings
 
 ### Adding New Settings
@@ -242,6 +272,8 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 - **[Design.lua](d:\Projects\chatbar\Design.lua)** - Design engine: builds and paints the bar and buttons, owns the visual state machine
 - **[Core/Pixel.lua](d:\Projects\chatbar\Core\Pixel.lua)** - Pixel grid, snapping helpers, 1px border primitive
 - **[Core/Theme.lua](d:\Projects\chatbar\Core\Theme.lua)** - Theme tokens, accent resolution, colour helpers
+- **[EditMode.lua](d:\Projects\chatbar\EditMode.lua)** - HUD Edit Mode support (Retail, Forever)
+- **[EditModeDialog.lua](d:\Projects\chatbar\EditModeDialog.lua)** - The bar's settings dialog in Edit Mode
 - **[Config.lua](d:\Projects\chatbar\Config.lua)** - Settings UI using modern Settings API
 - **[ChatBar.toc](d:\Projects\chatbar\ChatBar.toc)** - Addon manifest, file load order, metadata
 - **[Locales/Locales.lua](d:\Projects\chatbar\Locales\Locales.lua)** - Base English translations
@@ -271,7 +303,7 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
 
 ## Version Information
 - **Lua Version:** Lua 5.1 (WoW's embedded version -- no `goto`, no bitwise operators, no integer division)
-- **Addon Version:** 3.1.1
+- **Addon Version:** 3.2.0
 - **Supported flavors:** one package, one comma-separated `## Interface:` list.
 
 | Client | Version | Interface | Family |
@@ -294,7 +326,10 @@ InCombatLockdown()  -- Returns true if in combat (action restrictions apply)
   is the same on Classic Era as on Retail, so `ChatFrameUtil`, every chat type and
   `LE_PARTY_CATEGORY_INSTANCE` are available everywhere.
 - **The only flavor-specific code** is the `BATTLEGROUND` branch of
-  `ChatBar:IsChannelAvailable` -- `C_PvP.IsActiveBattlefield` is Mainline-only.
+  `ChatBar:IsChannelAvailable` -- `C_PvP.IsActiveBattlefield` is Mainline-only --
+  and `EditMode:IsSupported()`. The Classic clients ship a port of Edit Mode too,
+  but the integration is scoped to Retail and Forever, so it checks
+  `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE` on purpose rather than the frame alone.
 - **`.pkgmeta` must not set `enable-toc-creation`.** That strategy requires a
   `## Interface-<Type>:` line per flavor; the comma-list strategy used here is the
   alternative. Mixing them silently produces no per-flavor TOCs.
