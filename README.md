@@ -15,9 +15,8 @@ ChatBar ships as a single package that loads on every current flavor:
 
 Forever runs on the Midnight client codebase, so it behaves like Retail rather
 than like Classic. The Classic clients share Blizzard's unified chat UI, so the
-only flavor-specific code in ChatBar is the battleground check in
-`ChatBar:IsChannelAvailable` and the Edit Mode support, which is Retail and
-Forever only.
+only flavor-specific code in ChatBar is the Edit Mode support, which is Retail
+and Forever only.
 
 ## Release Notes
 
@@ -102,7 +101,7 @@ Russian included, renders natively.
 
 1. Create `Themes/YourTheme.lua` and register it into `ns.ThemeRegistry`
 2. Add the file to `ChatBar.toc` above `Design.lua`
-3. Add `THEME_YOURTHEME` / `THEME_YOURTHEME_DESC` keys to `Locales/Locales.lua`
+3. Add `THEME_YOURTHEME` / `THEME_YOURTHEME_DESC` keys to `Locales/enUS.lua` and each translation
 
 Copy `Themes/Flat.lua` for the full token schema. Colour tokens are
 `{ r, g, b, a }` and may carry an `accent = true` or `channel = true` marker,
@@ -152,7 +151,7 @@ ChatBar/
 │   ├── Flat.lua         # Channel-coloured plates, accent rule under the bar
 │   └── Glass.lua        # The same design in lit glass, with an accent rim
 └── Locales/
-    ├── Locales.lua      # English (base)
+    ├── enUS.lua         # English (base)
     ├── deDE.lua         # German
     ├── esES.lua         # Spanish
     ├── frFR.lua         # French
@@ -166,7 +165,7 @@ To add a new language:
 
 1. Create `Locales/xxXX.lua` (e.g., `zhCN.lua` for Chinese)
 2. Add to `ChatBar.toc` file list
-3. Copy structure from `Locales.lua`
+3. Copy the structure of an existing translation such as `deDE.lua`; `enUS.lua` lists every key
 4. Translate all strings
 5. Submit as contribution
 

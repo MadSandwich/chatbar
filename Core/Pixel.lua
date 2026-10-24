@@ -6,7 +6,7 @@
 -- away to nothing. Everything in this file exists to keep our 1px edges crisp
 -- at every resolution and UI scale.
 
-local addonName, ns = ...
+local _, ns = ...
 
 local Pixel = {}
 ns.Pixel = Pixel

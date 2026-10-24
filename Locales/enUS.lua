@@ -1,0 +1,127 @@
+-- UI strings. English is the base; Locales/<locale>.lua overrides it on other
+-- clients. A key with no translation falls back to the key itself, so a
+-- missing string shows up as its name instead of erroring.
+local _, ns = ...
+
+local L = setmetatable({}, {
+    __index = function(_, k)
+        return k
+    end
+})
+ns.L = L
+
+-- Addon Info
+L["ADDON_NAME"] = "|cff00ff00ChatBar|r"
+L["ADDON_LOADED"] = "loaded"
+L["ADDON_SLASH_HELP"] = "Type |cffff8800/chatbar|r for options."
+
+-- Chat Channels
+L["CHAT_SAY"] = "Say"
+L["CHAT_YELL"] = "Yell"
+L["CHAT_EMOTE"] = "Emote"
+L["CHAT_WHISPER"] = "Whisper"
+L["CHAT_PARTY"] = "Party"
+L["CHAT_RAID"] = "Raid"
+L["CHAT_RAID_WARNING"] = "Raid Warning"
+L["CHAT_INSTANCE"] = "Instance"
+L["CHAT_GUILD"] = "Guild"
+L["CHAT_OFFICER"] = "Officer"
+L["CHAT_REPLY"] = "Reply"
+
+-- Settings UI
+L["SETTINGS_TITLE"] = "ChatBar Settings"
+L["VERSION"] = "Version"
+L["PROFILE_MODE"] = "Profile Mode:"
+L["PROFILE_ACCOUNT"] = "Account-wide (shared across all characters)"
+L["PROFILE_CHARACTER"] = "Per-character settings"
+L["APPEARANCE"] = "Appearance"
+L["THEME"] = "Theme"
+L["BUTTON_SHAPE"] = "Button shape"
+L["SHAPE_SQUARE"] = "Square"
+L["SHAPE_CIRCLE"] = "Round"
+L["ACCENT"] = "Accent colour"
+L["ACCENT_CLASS"] = "Class colour"
+L["ACCENT_TEAL"] = "Teal"
+L["ACCENT_AZURE"] = "Azure"
+L["ACCENT_EMBER"] = "Ember"
+L["ACCENT_VIOLET"] = "Violet"
+L["ACCENT_GOLD"] = "Gold"
+L["ACCENT_MONO"] = "White"
+L["ACCENT_CUSTOM"] = "Custom..."
+L["FONT"] = "Font"
+L["FONT_DEFAULT"] = "Default"
+L["FONT_EXPRESSWAY"] = "Expressway"
+L["BACKGROUND_COLOR"] = "Background"
+L["BACKGROUND_COLOR_HINT"] = "Right-click to use the theme's own colour."
+L["BACKGROUND_OPACITY"] = "Bar opacity"
+L["BACKGROUND_OPACITY_HINT"] = "Applies to the bar background only, never to the channel buttons."
+L["BACKGROUND_OPACITY_NO_BAR"] = "The current theme draws no bar background."
+L["SKIN_AUTHOR"] = "by"
+
+-- Themes
+L["THEME_FLAT"] = "Flat"
+L["THEME_FLAT_DESC"] = "Channel-coloured plates, the active one filled in, and an accent rule under the bar."
+L["THEME_GLASS"] = "Glass"
+L["THEME_GLASS_DESC"] = "The same design as glass: lit gradients with a sheen and an accent rim."
+L["ORIENTATION"] = "Orientation:"
+L["ORIENTATION_HORIZONTAL"] = "Horizontal"
+L["ORIENTATION_VERTICAL"] = "Vertical"
+L["ENABLED_CHANNELS"] = "Enabled Channels:"
+L["NUMBERED_CHANNELS"] = "Numbered Channels:"
+L["SHOW_NUMBERED_CHANNELS"] = "Show numbered channels (General, Trade, LocalDefense, etc.)"
+L["NUMBERED_CHANNEL_FILTERS"] = "Filter individual channels:"
+L["NUMBERED_CHANNEL_NONE"] = "No numbered channels currently joined."
+L["NUMBERED_CHANNEL_INACTIVE"] = "Currently inactive (e.g. Trade outside a city)"
+L["FLASH_NOTIFICATIONS"] = "Flash Notifications:"
+L["FLASH_NOTIFICATIONS_DESC"] = "Flash buttons when new messages arrive"
+L["HIDE_LOADED_MESSAGE"] = "Hide loaded message in chat"
+L["FONT_SIZE"] = "Font Size:"
+L["BUTTON_SIZE"] = "Button Size:"
+L["TEXT_POSITION"] = "Text Position:"
+L["TEXT_POSITION_INSIDE"] = "Inside buttons"
+L["TEXT_POSITION_ABOVE"] = "Above buttons"
+L["POSITION"] = "Position:"
+L["LOCK_POSITION"] = "Lock bar position"
+L["LOCK_POSITION_EDIT_MODE_HINT"] = "Edit Mode can still move a locked bar."
+L["CHANNEL_HISTORY_DESC"] = "Enable channel history cycling (assign keys in Key Bindings)"
+
+-- Set globals for keybinding system (must be in global namespace)
+_G["BINDING_HEADER_CHATBAR"] = "ChatBar"
+_G["BINDING_NAME_CHATBAR_TOGGLE"] = "Toggle ChatBar"
+_G["BINDING_NAME_CHATBAR_SWITCH_SAY"] = "Switch to Say"
+_G["BINDING_NAME_CHATBAR_SWITCH_YELL"] = "Switch to Yell"
+_G["BINDING_NAME_CHATBAR_SWITCH_EMOTE"] = "Switch to Emote"
+_G["BINDING_NAME_CHATBAR_SWITCH_WHISPER"] = "Switch to Whisper"
+_G["BINDING_NAME_CHATBAR_QUICK_REPLY"] = "Quick-reply last whisper"
+_G["BINDING_NAME_CHATBAR_SWITCH_PARTY"] = "Switch to Party"
+_G["BINDING_NAME_CHATBAR_SWITCH_RAID"] = "Switch to Raid"
+_G["BINDING_NAME_CHATBAR_SWITCH_GUILD"] = "Switch to Guild"
+_G["BINDING_NAME_CHATBAR_SWITCH_OFFICER"] = "Switch to Officer"
+_G["BINDING_NAME_CHATBAR_CYCLE_PREV"] = "Cycle to previous channel"
+_G["BINDING_NAME_CHATBAR_CYCLE_NEXT"] = "Cycle to next channel"
+
+-- Messages
+L["MSG_BAR_SHOWN"] = "Bar shown"
+L["MSG_BAR_HIDDEN"] = "Bar hidden"
+L["MSG_BAR_TOGGLED"] = "Bar"
+L["MSG_RESET"] = "Resetting to defaults..."
+L["MSG_RESET_COMPLETE"] = "Settings reset!"
+L["MSG_STILL_LOADING"] = "Addon is still loading, please try again in a moment."
+L["MSG_SETTINGS_LOADING"] = "Settings panel is still loading, please try again in a moment."
+L["MSG_HISTORY_EMPTY"] = "No channel history yet. Switch channels first."
+L["MSG_NO_WHISPER_TARGET"] = "No one to reply to yet. Send or receive a whisper first."
+L["MSG_CHANNEL_UNAVAILABLE"] = "%s is not available right now."
+
+-- Tooltips
+L["TOOLTIP_CHANNEL"] = "Channel"
+L["TOOLTIP_CHAT"] = "Chat"
+L["TOOLTIP_CLICK_SWITCH"] = "Click to switch channel"
+
+-- Commands
+L["CMD_HELP_HEADER"] = "Commands:"
+L["CMD_OPEN_SETTINGS"] = "Open settings"
+L["CMD_TOGGLE"] = "Toggle bar visibility"
+L["CMD_SHOW"] = "Show bar"
+L["CMD_HIDE"] = "Hide bar"
+L["CMD_RESET"] = "Reset to defaults"
+L["CMD_HELP"] = "Show this help"

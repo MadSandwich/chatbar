@@ -1,5 +1,39 @@
 {
   "enabledPlugins": {
     "wow-addon-dev@wow-addon-dev": true
+  },
+    "permissions": {
+    "allow": [
+      "mcp__wow",
+      "mcp__mechanic__diagnostic-targets",
+      "mcp__mechanic__diagnostic-metrics",
+      "mcp__mechanic__addon-output",
+      "mcp__mechanic__lua-queue",
+      "mcp__mechanic__lua-results",
+      "mcp__mechanic__api-queue",
+      "mcp__mechanic__api-search",
+      "mcp__mechanic__api-info",
+      "mcp__mechanic__api-list",
+      "mcp__mechanic__api-stats",
+      "mcp__mechanic__addon-validate",
+      "mcp__mechanic__addon-lint",
+      "mcp__mechanic__addon-security",
+      "mcp__mechanic__addon-complexity",
+      "mcp__mechanic__addon-deprecations",
+      "mcp__mechanic__addon-deadcode",
+      "mcp__mechanic__docs-stale",
+      "mcp__mechanic__locale-validate",
+      "mcp__mechanic__locale-extract",
+      "mcp__mechanic__sandbox-generate",
+      "mcp__mechanic__sandbox-status",
+      "mcp__mechanic__sandbox-exec",
+      "mcp__mechanic__sandbox-test",
+      "mcp__mechanic__sv-discover",
+      "mcp__mechanic__sv-parse",
+      "mcp__mechanic__atlas-search",
+      "mcp__mechanic__tools-status",
+      "mcp__mechanic__env-status",
+      "mcp__mechanic__commands-list"
+    ]
   }
 }

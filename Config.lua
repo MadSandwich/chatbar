@@ -1,7 +1,7 @@
 -- ChatBar: Configuration and Settings UI
 -- Config file
 
-local addonName, ns = ...
+local _, ns = ...
 
 -- Create Config object
 local Config = {}
@@ -117,7 +117,7 @@ function Config:UpdatePreview(preview)
     if not preview then return end
 
     local settings = ChatBar:GetSettings()
-    local size = settings.buttonSize or 24
+    local size = settings.buttonSize or ns.Defaults.buttonSize
     local padding = ns.Design:GetPadding()
     local spacing = ns.Design:GetSpacing()
 
@@ -158,13 +158,16 @@ end
 
 -- Custom accent picker. Uses the modern SetupColorPickerAndShow entry point
 -- rather than poking ColorPickerFrame's fields directly.
+--
+-- The picker reports every colour it shows through swatchFunc, including the
+-- one it sets while opening, so the settings already hold its colour by the
+-- time a cancel arrives. What to go back to is captured before it opens.
 function Config:OpenAccentColorPicker()
     local settings = ChatBar:GetSettings()
     local r, g, b = ns.Theme:GetAccent()
+    local previousAccent, previousColor = settings.accent, settings.accentColor
 
-    local function Apply(nr, ng, nb)
-        settings.accent = "custom"
-        settings.accentColor = { r = nr, g = ng, b = nb }
+    local function Changed()
         ns.Theme:NotifyChanged("accent")
         if Config.panel then
             Config:RefreshPanel(Config.panel)
@@ -175,12 +178,16 @@ function Config:OpenAccentColorPicker()
         r = r, g = g, b = b,
         hasOpacity = false,
         swatchFunc = function()
-            Apply(ColorPickerFrame:GetColorRGB())
+            local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+            settings.accent = "custom"
+            settings.accentColor = { r = nr, g = ng, b = nb }
+            Changed()
         end,
-        cancelFunc = function(previous)
-            if previous then
-                Apply(previous.r, previous.g, previous.b)
-            end
+        -- Cancel, Escape and a click outside the picker all land here, and each
+        -- means "keep what I had": the earlier accent choice, not "custom".
+        cancelFunc = function()
+            settings.accent, settings.accentColor = previousAccent, previousColor
+            Changed()
         end,
     })
 end
@@ -190,6 +197,10 @@ end
 -- Seeded from whatever is on screen right now: with no override stored, that is
 -- the theme's own bar colour, so the picker opens on the current look instead of
 -- an arbitrary swatch.
+--
+-- A cancel restores the stored value, which may be no override at all. Writing
+-- the seed colour back instead would pin the current theme's colour onto every
+-- theme picked afterwards.
 function Config:OpenBackgroundColorPicker()
     local settings = ChatBar:GetSettings()
     local current = settings.backgroundColor
@@ -203,8 +214,7 @@ function Config:OpenBackgroundColorPicker()
         r, g, b = ns.Theme:Resolve(barCfg.gradient and barCfg.gradient.from or barCfg.fill)
     end
 
-    local function Apply(nr, ng, nb)
-        settings.backgroundColor = { r = nr, g = ng, b = nb }
+    local function Changed()
         ns.Theme:NotifyChanged("background")
         if Config.panel then
             Config:RefreshPanel(Config.panel)
@@ -215,12 +225,13 @@ function Config:OpenBackgroundColorPicker()
         r = r, g = g, b = b,
         hasOpacity = false,
         swatchFunc = function()
-            Apply(ColorPickerFrame:GetColorRGB())
+            local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+            settings.backgroundColor = { r = nr, g = ng, b = nb }
+            Changed()
         end,
-        cancelFunc = function(previous)
-            if previous then
-                Apply(previous.r, previous.g, previous.b)
-            end
+        cancelFunc = function()
+            settings.backgroundColor = current
+            Changed()
         end,
     })
 end
@@ -235,67 +246,69 @@ end
 -- Create settings panel with scroll
 function Config:CreateSettingsPanel()
     local L = ns.L
-    
+
     local panel = CreateFrame("Frame", "ChatBarConfigPanel", UIParent)
     panel.name = L.ADDON_NAME
-    
+
     -- Create scroll frame
     local scrollFrame = CreateFrame("ScrollFrame", "ChatBarConfigScroll", panel, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", 4, -4)
     scrollFrame:SetPoint("BOTTOMRIGHT", -27, 4)
-    
+
     -- Create scroll child (content frame)
     local content = CreateFrame("Frame", "ChatBarConfigContent", scrollFrame)
     content:SetSize(600, 800) -- Will expand as needed
     scrollFrame:SetScrollChild(content)
-    
+
     -- Title
     local title = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText(L.SETTINGS_TITLE)
-    
+
     -- Version
     local version = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     version:SetText(L.VERSION .. " " .. ChatBar.VERSION)
     version:SetTextColor(0.5, 0.5, 0.5)
-    
+
     local yOffset = -80
-    
+
     -- Profile Mode Section
     local profileLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     profileLabel:SetPoint("TOPLEFT", 16, yOffset)
     profileLabel:SetText(L.PROFILE_MODE)
-    
+
     local profileAccount = CreateFrame("CheckButton", "ChatBarProfileAccount", content, "UIRadioButtonTemplate")
     profileAccount:SetPoint("TOPLEFT", profileLabel, "BOTTOMLEFT", 0, -8)
     profileAccount.text:SetFontObject("GameFontHighlight")
     profileAccount.text:SetPoint("LEFT", profileAccount, "RIGHT", 0, 0)
     profileAccount.text:SetText(L.PROFILE_ACCOUNT)
-    
+
     local profileCharacter = CreateFrame("CheckButton", "ChatBarProfileCharacter", content, "UIRadioButtonTemplate")
     profileCharacter:SetPoint("TOPLEFT", profileAccount, "BOTTOMLEFT", 0, -4)
     profileCharacter.text:SetFontObject("GameFontHighlight")
     profileCharacter.text:SetPoint("LEFT", profileCharacter, "RIGHT", 0, 0)
     profileCharacter.text:SetText(L.PROFILE_CHARACTER)
-    
-    profileAccount:SetScript("OnClick", function(self)
-        ns.db.profileMode = "account"
+
+    -- A radio button is a CheckButton, so clicking the selected one toggles it
+    -- off. Each handler re-checks itself to keep exactly one option selected.
+    profileAccount:SetScript("OnClick", function(button)
+        button:SetChecked(true)
         profileCharacter:SetChecked(false)
-        ChatBar:Refresh()
+        ChatBar:SetProfileMode("account")
     end)
-    
-    profileCharacter:SetScript("OnClick", function(self)
-        ns.db.profileMode = "character"
+
+    profileCharacter:SetScript("OnClick", function(button)
+        button:SetChecked(true)
         profileAccount:SetChecked(false)
-        ChatBar:Refresh()
+        ChatBar:SetProfileMode("character")
     end)
-    
+
     content.profileAccount = profileAccount
     content.profileCharacter = profileCharacter
-    
+
     yOffset = yOffset - 80
-    
+
     -- Appearance Section: theme, button shape, accent colour
     local appearanceLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     appearanceLabel:SetPoint("TOPLEFT", 16, yOffset)
@@ -398,14 +411,15 @@ function Config:CreateSettingsPanel()
             return ChatBar:GetSettings().accent or "class"
         end,
         function(value)
-            local settings = ChatBar:GetSettings()
-            settings.accent = value
+            -- The picker sets "custom" itself once a colour is chosen, so a
+            -- cancelled pick leaves the previous accent selected.
             if value == "custom" then
                 Config:OpenAccentColorPicker()
-            else
-                ns.Theme:NotifyChanged("accent")
-                Config:RefreshPanel(Config.panel)
+                return
             end
+            ChatBar:GetSettings().accent = value
+            ns.Theme:NotifyChanged("accent")
+            Config:RefreshPanel(Config.panel)
         end)
     accentDropdown:SetDefaultText(L.ACCENT)
     ControlPoint(accentDropdown, 3, 1)
@@ -465,8 +479,8 @@ function Config:CreateSettingsPanel()
             Config:OpenBackgroundColorPicker()
         end
     end)
-    swatch:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    swatch:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
         GameTooltip:SetText(L.BACKGROUND_COLOR)
         GameTooltip:AddLine(L.BACKGROUND_COLOR_HINT, 0.7, 0.7, 0.7)
         GameTooltip:Show()
@@ -487,22 +501,22 @@ function Config:CreateSettingsPanel()
     _G[opacitySlider:GetName() .. "Low"]:SetText("5%")
     _G[opacitySlider:GetName() .. "High"]:SetText("100%")
 
-    opacitySlider:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    opacitySlider:SetScript("OnEnter", function(slider)
+        GameTooltip:SetOwner(slider, "ANCHOR_RIGHT")
         GameTooltip:SetText(L.BACKGROUND_OPACITY)
         GameTooltip:AddLine(L.BACKGROUND_OPACITY_HINT, 0.7, 0.7, 0.7, true)
-        if not self:IsEnabled() then
+        if not slider:IsEnabled() then
             GameTooltip:AddLine(L.BACKGROUND_OPACITY_NO_BAR, 1, 0.5, 0.5, true)
         end
         GameTooltip:Show()
     end)
     opacitySlider:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    opacitySlider:SetScript("OnValueChanged", function(self, value)
+    opacitySlider:SetScript("OnValueChanged", function(slider, value)
         local settings = ChatBar:GetSettings()
         local opacity = value / 100
 
-        _G[self:GetName() .. "Text"]:SetText(string.format("%d%%", math.floor(value)))
+        _G[slider:GetName() .. "Text"]:SetText(string.format("%d%%", math.floor(value)))
 
         -- RefreshPanel drives SetValue to sync the widget, which fires this
         -- handler again; bail on a no-op rather than triggering a second full
@@ -529,49 +543,49 @@ function Config:CreateSettingsPanel()
     content.preview = preview
 
     yOffset = yOffset - 220
-    
+
     -- Orientation Section
     local orientationLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     orientationLabel:SetPoint("TOPLEFT", 16, yOffset)
     orientationLabel:SetText(L.ORIENTATION)
-    
+
     local orientationHorizontal = CreateFrame("CheckButton", "ChatBarOrientationHorizontal", content, "UIRadioButtonTemplate")
     orientationHorizontal:SetPoint("TOPLEFT", orientationLabel, "BOTTOMLEFT", 0, -8)
     orientationHorizontal.text:SetFontObject("GameFontHighlight")
     orientationHorizontal.text:SetPoint("LEFT", orientationHorizontal, "RIGHT", 0, 0)
     orientationHorizontal.text:SetText(L.ORIENTATION_HORIZONTAL)
-    
+
     local orientationVertical = CreateFrame("CheckButton", "ChatBarOrientationVertical", content, "UIRadioButtonTemplate")
     orientationVertical:SetPoint("LEFT", orientationHorizontal, "RIGHT", 120, 0)
     orientationVertical.text:SetFontObject("GameFontHighlight")
     orientationVertical.text:SetPoint("LEFT", orientationVertical, "RIGHT", 0, 0)
     orientationVertical.text:SetText(L.ORIENTATION_VERTICAL)
-    
-    orientationHorizontal:SetScript("OnClick", function(self)
-        local settings = ChatBar:GetSettings()
-        settings.orientation = "horizontal"
+
+    orientationHorizontal:SetScript("OnClick", function(button)
+        button:SetChecked(true)
         orientationVertical:SetChecked(false)
+        ChatBar:GetSettings().orientation = "horizontal"
         ChatBar:Refresh()
     end)
-    
-    orientationVertical:SetScript("OnClick", function(self)
-        local settings = ChatBar:GetSettings()
-        settings.orientation = "vertical"
+
+    orientationVertical:SetScript("OnClick", function(button)
+        button:SetChecked(true)
         orientationHorizontal:SetChecked(false)
+        ChatBar:GetSettings().orientation = "vertical"
         ChatBar:Refresh()
     end)
-    
+
     content.orientationHorizontal = orientationHorizontal
     content.orientationVertical = orientationVertical
-    
+
     yOffset = yOffset - 60
-    
+
     -- Two-column layout for sizes
     -- Font Size Section (Left column)
     local fontSizeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     fontSizeLabel:SetPoint("TOPLEFT", 16, yOffset)
-    fontSizeLabel:SetText("Font Size:")
-    
+    fontSizeLabel:SetText(L.FONT_SIZE)
+
     local fontSizeSlider = CreateFrame("Slider", "ChatBarFontSizeSlider", content, "OptionsSliderTemplate")
     fontSizeSlider:SetPoint("TOPLEFT", fontSizeLabel, "BOTTOMLEFT", 4, -20)
     fontSizeSlider:SetMinMaxValues(ChatBar.FONT_SIZE_MIN, ChatBar.FONT_SIZE_MAX)
@@ -579,26 +593,28 @@ function Config:CreateSettingsPanel()
     fontSizeSlider:SetObeyStepOnDrag(true)
     fontSizeSlider:SetWidth(120)
 
-    -- Set slider labels
+    -- Range labels; the value label is written by RefreshPanel and on change
     _G[fontSizeSlider:GetName() .. "Low"]:SetText(tostring(ChatBar.FONT_SIZE_MIN))
     _G[fontSizeSlider:GetName() .. "High"]:SetText(tostring(ChatBar.FONT_SIZE_MAX))
-    _G[fontSizeSlider:GetName() .. "Text"]:SetText("12")
-    
-    fontSizeSlider:SetScript("OnValueChanged", function(self, value)
+
+    -- RefreshPanel drives SetValue to sync the widget, which fires this handler
+    -- again; bail on a no-op rather than rebuilding the bar for nothing.
+    fontSizeSlider:SetScript("OnValueChanged", function(slider, value)
+        _G[slider:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
         local settings = ChatBar:GetSettings()
+        if settings.fontSize == value then return end
         settings.fontSize = value
-        _G[self:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
         ChatBar:Refresh()
         Config:UpdatePreview(content.preview)
     end)
-    
+
     content.fontSizeSlider = fontSizeSlider
-    
+
     -- Button Size Section (Right column)
     local buttonSizeLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     buttonSizeLabel:SetPoint("TOPLEFT", 300, yOffset)
-    buttonSizeLabel:SetText("Button Size:")
-    
+    buttonSizeLabel:SetText(L.BUTTON_SIZE)
+
     local buttonSizeSlider = CreateFrame("Slider", "ChatBarButtonSizeSlider", content, "OptionsSliderTemplate")
     buttonSizeSlider:SetPoint("TOPLEFT", buttonSizeLabel, "BOTTOMLEFT", 4, -20)
     buttonSizeSlider:SetMinMaxValues(ChatBar.BUTTON_SIZE_MIN, ChatBar.BUTTON_SIZE_MAX)
@@ -606,75 +622,74 @@ function Config:CreateSettingsPanel()
     buttonSizeSlider:SetObeyStepOnDrag(true)
     buttonSizeSlider:SetWidth(120)
 
-    -- Set slider labels
     _G[buttonSizeSlider:GetName() .. "Low"]:SetText(tostring(ChatBar.BUTTON_SIZE_MIN))
     _G[buttonSizeSlider:GetName() .. "High"]:SetText(tostring(ChatBar.BUTTON_SIZE_MAX))
-    _G[buttonSizeSlider:GetName() .. "Text"]:SetText("18")
-    
-    buttonSizeSlider:SetScript("OnValueChanged", function(self, value)
+
+    buttonSizeSlider:SetScript("OnValueChanged", function(slider, value)
+        _G[slider:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
         local settings = ChatBar:GetSettings()
+        if settings.buttonSize == value then return end
         settings.buttonSize = value
-        _G[self:GetName() .. "Text"]:SetText(tostring(math.floor(value)))
         ChatBar:Refresh()
         Config:UpdatePreview(content.preview)
     end)
-    
+
     content.buttonSizeSlider = buttonSizeSlider
-    
+
     yOffset = yOffset - 80
-    
+
     -- Text Position Section
     local textPosLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     textPosLabel:SetPoint("TOPLEFT", 16, yOffset)
     textPosLabel:SetText(L.TEXT_POSITION)
-    
+
     local textPosInside = CreateFrame("CheckButton", "ChatBarTextPosInside", content, "UIRadioButtonTemplate")
     textPosInside:SetPoint("TOPLEFT", textPosLabel, "BOTTOMLEFT", 0, -8)
     textPosInside.text:SetFontObject("GameFontHighlight")
     textPosInside.text:SetPoint("LEFT", textPosInside, "RIGHT", 0, 0)
     textPosInside.text:SetText(L.TEXT_POSITION_INSIDE)
-    
+
     local textPosAbove = CreateFrame("CheckButton", "ChatBarTextPosAbove", content, "UIRadioButtonTemplate")
     textPosAbove:SetPoint("LEFT", textPosInside, "RIGHT", 120, 0)
     textPosAbove.text:SetFontObject("GameFontHighlight")
     textPosAbove.text:SetPoint("LEFT", textPosAbove, "RIGHT", 0, 0)
     textPosAbove.text:SetText(L.TEXT_POSITION_ABOVE)
-    
-    textPosInside:SetScript("OnClick", function(self)
-        local settings = ChatBar:GetSettings()
-        settings.textPosition = "inside"
+
+    textPosInside:SetScript("OnClick", function(button)
+        button:SetChecked(true)
         textPosAbove:SetChecked(false)
+        ChatBar:GetSettings().textPosition = "inside"
         ChatBar:Refresh()
     end)
-    
-    textPosAbove:SetScript("OnClick", function(self)
-        local settings = ChatBar:GetSettings()
-        settings.textPosition = "above"
+
+    textPosAbove:SetScript("OnClick", function(button)
+        button:SetChecked(true)
         textPosInside:SetChecked(false)
+        ChatBar:GetSettings().textPosition = "above"
         ChatBar:Refresh()
     end)
-    
+
     content.textPosInside = textPosInside
     content.textPosAbove = textPosAbove
-    
+
     yOffset = yOffset - 50
-    
+
     -- Flash Notifications Section
     local flashCheckbox = CreateFrame("CheckButton", "ChatBarFlashNotifications", content, "UICheckButtonTemplate")
     flashCheckbox:SetPoint("TOPLEFT", 16, yOffset)
     flashCheckbox.text:SetFontObject("GameFontHighlight")
     flashCheckbox.text:SetPoint("LEFT", flashCheckbox, "RIGHT", 0, 0)
     flashCheckbox.text:SetText(L.FLASH_NOTIFICATIONS_DESC)
-    
-    flashCheckbox:SetScript("OnClick", function(self)
+
+    flashCheckbox:SetScript("OnClick", function(checkbox)
         local settings = ChatBar:GetSettings()
-        settings.flashNotifications = self:GetChecked()
+        settings.flashNotifications = checkbox:GetChecked()
     end)
-    
+
     content.flashCheckbox = flashCheckbox
-    
+
     yOffset = yOffset - 30
-    
+
     -- Channel History Cycling Section
     local historyCheckbox = CreateFrame("CheckButton", "ChatBarChannelHistory", content, "UICheckButtonTemplate")
     historyCheckbox:SetPoint("TOPLEFT", 16, yOffset)
@@ -684,150 +699,150 @@ function Config:CreateSettingsPanel()
     historyCheckbox.text:SetWidth(500)
     historyCheckbox.text:SetJustifyH("LEFT")
     historyCheckbox.text:SetText(L.CHANNEL_HISTORY_DESC)
-    
-    historyCheckbox:SetScript("OnClick", function(self)
+
+    historyCheckbox:SetScript("OnClick", function(checkbox)
         local settings = ChatBar:GetSettings()
         if not settings.channelHistory then
             settings.channelHistory = {}
         end
-        settings.channelHistory.enabled = self:GetChecked()
+        settings.channelHistory.enabled = checkbox:GetChecked()
     end)
-    
+
     content.historyCheckbox = historyCheckbox
-    
+
     -- Extra spacing: the wrapped label can occupy two lines for longer locales.
     yOffset = yOffset - 44
-    
+
     -- Hide Loaded Message Section
     local hideLoadedCheckbox = CreateFrame("CheckButton", "ChatBarHideLoadedMessage", content, "UICheckButtonTemplate")
     hideLoadedCheckbox:SetPoint("TOPLEFT", 16, yOffset)
     hideLoadedCheckbox.text:SetFontObject("GameFontHighlight")
     hideLoadedCheckbox.text:SetPoint("LEFT", hideLoadedCheckbox, "RIGHT", 0, 0)
     hideLoadedCheckbox.text:SetText(L.HIDE_LOADED_MESSAGE)
-    
-    hideLoadedCheckbox:SetScript("OnClick", function(self)
+
+    hideLoadedCheckbox:SetScript("OnClick", function(checkbox)
         local settings = ChatBar:GetSettings()
-        settings.hideLoadedMessage = self:GetChecked()
+        settings.hideLoadedMessage = checkbox:GetChecked()
     end)
-    
+
     content.hideLoadedCheckbox = hideLoadedCheckbox
-    
+
     yOffset = yOffset - 40
-    
+
     -- Channel Configuration Section
     local channelLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     channelLabel:SetPoint("TOPLEFT", 16, yOffset)
     channelLabel:SetText(L.ENABLED_CHANNELS)
-    
+
     local channelCheckboxes = {}
     local checkYOffset = yOffset - 24
     local column = 0
     local row = 0
-    
+
     -- Create checkboxes for each channel
     local channelOrder = {}
-    for channelType, config in pairs(ns.ChannelInfo) do
+    for channelType in pairs(ns.ChannelInfo) do
         table.insert(channelOrder, channelType)
     end
     table.sort(channelOrder)
-    
+
     for _, channelType in ipairs(channelOrder) do
         local info = ns.ChannelInfo[channelType]
         local checkbox = CreateFrame("CheckButton", "ChatBarChannel" .. channelType, content, "UICheckButtonTemplate")
-        
+
         local xPos = 20 + (column * 200)
         local yPos = checkYOffset - (row * 28)
-        
+
         checkbox:SetPoint("TOPLEFT", xPos, yPos)
         checkbox.text:SetFontObject("GameFontHighlight")
         checkbox.text:SetPoint("LEFT", checkbox, "RIGHT", 0, 0)
         checkbox.text:SetText(L[info.labelKey] or info.labelKey)
-        
+
         checkbox.channelType = channelType
-        checkbox:SetScript("OnClick", function(self)
+        checkbox:SetScript("OnClick", function(box)
             local settings = ChatBar:GetSettings()
-            settings.channels[channelType].enabled = self:GetChecked()
+            settings.channels[channelType].enabled = box:GetChecked()
             ChatBar:UpdateButtons()
         end)
-        
+
         channelCheckboxes[channelType] = checkbox
-        
+
         column = column + 1
         if column >= 2 then
             column = 0
             row = row + 1
         end
     end
-    
+
     content.channelCheckboxes = channelCheckboxes
-    
+
     -- Numbered Channels Section
     yOffset = checkYOffset - (row + 1) * 28 - 20
-    
+
     local numberedLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     numberedLabel:SetPoint("TOPLEFT", 16, yOffset)
     numberedLabel:SetText(L.NUMBERED_CHANNELS)
-    
+
     local numberedEnabled = CreateFrame("CheckButton", "ChatBarNumberedEnabled", content, "UICheckButtonTemplate")
     numberedEnabled:SetPoint("TOPLEFT", numberedLabel, "BOTTOMLEFT", 0, -8)
     numberedEnabled.text:SetFontObject("GameFontHighlight")
     numberedEnabled.text:SetPoint("LEFT", numberedEnabled, "RIGHT", 0, 0)
     numberedEnabled.text:SetText(L.SHOW_NUMBERED_CHANNELS)
-    
-    numberedEnabled:SetScript("OnClick", function(self)
+
+    numberedEnabled:SetScript("OnClick", function(checkbox)
         local settings = ChatBar:GetSettings()
-        settings.numberedChannels.enabled = self:GetChecked()
+        settings.numberedChannels.enabled = checkbox:GetChecked()
         ChatBar:UpdateButtons()
         Config:BuildNumberedChannelCheckboxes(content)
     end)
-    
+
     content.numberedEnabled = numberedEnabled
-    
+
     -- Sub-label for the per-channel filter list
     local numberedFilterLabel = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     numberedFilterLabel:SetPoint("TOPLEFT", numberedEnabled, "BOTTOMLEFT", 20, -10)
     numberedFilterLabel:SetText(L.NUMBERED_CHANNEL_FILTERS)
     content.numberedFilterLabel = numberedFilterLabel
-    
+
     -- Container for the dynamic per-channel filter checkboxes
     local numberedFilterSection = CreateFrame("Frame", nil, content)
     numberedFilterSection:SetPoint("TOPLEFT", numberedFilterLabel, "BOTTOMLEFT", 0, -4)
     numberedFilterSection:SetSize(560, 0)
     content.numberedFilterSection = numberedFilterSection
-    
+
     -- Frame pool for the dynamic filter checkboxes (avoids frame accumulation on rebuild)
     content.numberedFilterPool = CreateFramePool("CheckButton", numberedFilterSection, "UICheckButtonTemplate", NumberedFilterCheckboxResetter)
-    
+
     -- Placeholder shown when no numbered channels are currently joined
     local numberedNoneLabel = numberedFilterSection:CreateFontString(nil, "ARTWORK", "GameFontDisable")
     numberedNoneLabel:SetPoint("TOPLEFT", 4, -4)
     numberedNoneLabel:SetText(L.NUMBERED_CHANNEL_NONE)
     numberedNoneLabel:Hide()
     content.numberedNoneLabel = numberedNoneLabel
-    
+
     -- Lock Position Section — anchored relative to the dynamic filter section so it
     -- repositions automatically when the filter list grows or shrinks.
     local lockLabel = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     lockLabel:SetPoint("TOPLEFT", numberedFilterSection, "BOTTOMLEFT", -4, -20)
-    lockLabel:SetText("Position:")
-    
+    lockLabel:SetText(L.POSITION)
+
     local lockPosition = CreateFrame("CheckButton", "ChatBarLockPosition", content, "UICheckButtonTemplate")
     lockPosition:SetPoint("TOPLEFT", lockLabel, "BOTTOMLEFT", 0, -8)
     lockPosition.text:SetFontObject("GameFontHighlight")
     lockPosition.text:SetPoint("LEFT", lockPosition, "RIGHT", 0, 0)
-    lockPosition.text:SetText("Lock bar position")
-    
-    lockPosition:SetScript("OnClick", function(self)
+    lockPosition.text:SetText(L.LOCK_POSITION)
+
+    lockPosition:SetScript("OnClick", function(checkbox)
         local settings = ChatBar:GetSettings()
-        settings.lockPosition = self:GetChecked()
+        settings.lockPosition = checkbox:GetChecked()
     end)
 
     -- Edit Mode ignores the lock (see EditMode.lua); say so where the lock is
     -- set, rather than let a locked bar moving there look like a bug.
     if ns.EditMode:IsSupported() then
-        lockPosition:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(self.text:GetText())
+        lockPosition:SetScript("OnEnter", function(checkbox)
+            GameTooltip:SetOwner(checkbox, "ANCHOR_RIGHT")
+            GameTooltip:SetText(checkbox.text:GetText())
             GameTooltip:AddLine(L.LOCK_POSITION_EDIT_MODE_HINT, 0.7, 0.7, 0.7, true)
             GameTooltip:Show()
         end)
@@ -835,24 +850,24 @@ function Config:CreateSettingsPanel()
     end
 
     content.lockPosition = lockPosition
-    
+
     -- Store content reference
     panel.content = content
-    
+
     -- Refresh panel callback
     panel.refresh = function()
         Config:RefreshPanel(panel)
     end
-    
+
     -- Auto-refresh on show
-    panel:SetScript("OnShow", function(self)
-        if self.refresh then
-            self.refresh()
+    panel:SetScript("OnShow", function(frame)
+        if frame.refresh then
+            frame.refresh()
         end
     end)
-    
+
     self.panel = panel
-    
+
     -- Live-refresh the per-channel filter list whenever joined channels change.
     local channelUpdateListener = CreateFrame("Frame")
     channelUpdateListener:RegisterEvent("CHANNEL_UI_UPDATE")
@@ -861,7 +876,7 @@ function Config:CreateSettingsPanel()
             Config:BuildNumberedChannelCheckboxes(panel.content)
         end
     end)
-    
+
     -- Add to interface options using the Settings API (WoW 10.0+)
     if Settings and Settings.RegisterCanvasLayoutCategory then
         local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
@@ -869,7 +884,7 @@ function Config:CreateSettingsPanel()
         panel.category = category
         self.settingsCategory = category
     end
-    
+
     return panel
 end
 
@@ -877,11 +892,11 @@ end
 function Config:RefreshPanel(panel)
     local content = panel.content
     local settings = ChatBar:GetSettings()
-    
+
     -- Profile mode
     content.profileAccount:SetChecked(ns.db.profileMode == "account")
     content.profileCharacter:SetChecked(ns.db.profileMode == "character")
-    
+
     -- Appearance dropdowns: re-read so the button text follows the settings,
     -- including changes made from a slash command or a profile switch.
     RefreshDropdown(content.themeDropdown)
@@ -942,56 +957,59 @@ function Config:RefreshPanel(panel)
     end
 
     self:UpdatePreview(content.preview)
-    
+
     -- Orientation
     content.orientationHorizontal:SetChecked(settings.orientation == "horizontal")
     content.orientationVertical:SetChecked(settings.orientation == "vertical")
-    
+
     -- Channel checkboxes
     for channelType, checkbox in pairs(content.channelCheckboxes) do
         if settings.channels[channelType] then
             checkbox:SetChecked(settings.channels[channelType].enabled)
         end
     end
-    
+
     -- Numbered channels
     content.numberedEnabled:SetChecked(settings.numberedChannels.enabled)
-    
+
     -- Rebuild per-channel filter checkboxes to match current profile and channel list.
     self:BuildNumberedChannelCheckboxes(content)
-    
+
     -- Lock position
     content.lockPosition:SetChecked(settings.lockPosition)
-    
-    -- Font size
+
+    -- Font and button size. The value label is written here as well as on
+    -- change, so it is right whether or not SetValue fires the change handler.
     if content.fontSizeSlider then
-        content.fontSizeSlider:SetValue(settings.fontSize or 12)
-        _G[content.fontSizeSlider:GetName() .. "Text"]:SetText(tostring(math.floor(settings.fontSize or 12)))
+        local fontSize = settings.fontSize or ns.Design:GetDefaultFontSize()
+        content.fontSizeSlider:SetValue(fontSize)
+        _G[content.fontSizeSlider:GetName() .. "Text"]:SetText(tostring(math.floor(fontSize)))
     end
-    
-    -- Button size
+
     if content.buttonSizeSlider then
-        content.buttonSizeSlider:SetValue(settings.buttonSize or 24)
+        local buttonSize = settings.buttonSize or ns.Defaults.buttonSize
+        content.buttonSizeSlider:SetValue(buttonSize)
+        _G[content.buttonSizeSlider:GetName() .. "Text"]:SetText(tostring(math.floor(buttonSize)))
     end
-    
+
     -- Text position
     if content.textPosInside and content.textPosAbove then
         local textPos = settings.textPosition or "inside"
         content.textPosInside:SetChecked(textPos == "inside")
         content.textPosAbove:SetChecked(textPos == "above")
     end
-    
+
     -- Flash notifications
     if content.flashCheckbox then
         content.flashCheckbox:SetChecked(settings.flashNotifications ~= false)
     end
-    
+
     -- Channel history cycling
     if content.historyCheckbox then
         local ch = settings.channelHistory
         content.historyCheckbox:SetChecked(not ch or ch.enabled ~= false)
     end
-    
+
     -- Hide loaded message
     if content.hideLoadedCheckbox then
         content.hideLoadedCheckbox:SetChecked(settings.hideLoadedMessage ~= false)
@@ -1057,8 +1075,8 @@ function Config:BuildNumberedChannelCheckboxes(content)
 
         if ch.disabled then
             cb.text:SetTextColor(0.5, 0.5, 0.5)
-            cb:SetScript("OnEnter", function(self)
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            cb:SetScript("OnEnter", function(box)
+                GameTooltip:SetOwner(box, "ANCHOR_RIGHT")
                 GameTooltip:SetText(L.NUMBERED_CHANNEL_INACTIVE)
                 GameTooltip:Show()
             end)
@@ -1068,12 +1086,12 @@ function Config:BuildNumberedChannelCheckboxes(content)
         end
 
         local channelName = ch.name
-        cb:SetScript("OnClick", function(self)
+        cb:SetScript("OnClick", function(box)
             local s = ChatBar:GetSettings()
             if not s.numberedChannels.excluded then
                 s.numberedChannels.excluded = {}
             end
-            if self:GetChecked() then
+            if box:GetChecked() then
                 s.numberedChannels.excluded[channelName] = nil
             else
                 s.numberedChannels.excluded[channelName] = true
@@ -1099,7 +1117,7 @@ function Config:OpenSettings()
         print(string.format("%s: %s", L.ADDON_NAME, L.MSG_SETTINGS_LOADING))
         return
     end
-    
+
     if Settings and Settings.OpenToCategory and self.settingsCategory.GetID then
         Settings.OpenToCategory(self.settingsCategory:GetID())
     end

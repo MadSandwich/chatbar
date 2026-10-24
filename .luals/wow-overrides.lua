@@ -29,3 +29,10 @@ LE_PARTY_CATEGORY_INSTANCE = 2
 --- but upstream annotates none of the HUD_EDIT_MODE_* strings.
 ---@type string
 HUD_EDIT_MODE_RESET_POSITION = "Reset To Default Position"
+
+--- The client's own whisper slash command: "/w" in enUS, "/ш" in ruRU (seen in
+--- game 2026-10-24). It resolves a BattleTag or Battle.net friend to a
+--- Battle.net whisper; Blizzard's chat menu builds its Whisper entry from it.
+--- A live, localized global string with no upstream annotation.
+---@type string
+SLASH_SMART_WHISPER1 = "/w"

@@ -8,7 +8,7 @@
 -- module resolves it from the player's choice (class colour by default), so a
 -- single set of themes covers every accent without duplicating tokens.
 
-local addonName, ns = ...
+local _, ns = ...
 
 local Theme = {}
 ns.Theme = Theme

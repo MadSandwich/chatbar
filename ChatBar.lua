@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.2.0"
+ChatBar.VERSION = "3.2.1"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
@@ -19,7 +19,7 @@ ChatBar.FONT_SIZE_MIN, ChatBar.FONT_SIZE_MAX = 8, 24
 
 -- Default settings
 ns.Defaults = {
-    version = 3,
+    version = 4,
     profileMode = "account", -- "account" or "character"
     theme = "Flat", -- Design theme id, see Themes/
     buttonShape = "square", -- "square" or "circle"; a theme may fix its own and ignore this
@@ -40,7 +40,7 @@ ns.Defaults = {
     flashNotifications = true, -- Flash buttons on new messages
     flashDuration = 3, -- Duration of flash notifications in seconds
     hideLoadedMessage = true, -- Hide addon loaded message in chat
-    
+
     -- Channel history cycling (session-only history; toggle enables recording)
     channelHistory = {
         enabled = true, -- Track recently used channels for keybind cycling
@@ -52,26 +52,22 @@ ns.Defaults = {
         SAY = { enabled = true, order = 1 },
         YELL = { enabled = true, order = 2 },
         EMOTE = { enabled = false, order = 3 },
-        WHISPER = { enabled = false, order = 4 },
-        BN_WHISPER = { enabled = false, order = 5 },
-        
+        WHISPER = { enabled = false, order = 4 }, -- Also reaches Battle.net friends
+
         -- Group channels
         PARTY = { enabled = true, order = 6 },
         RAID = { enabled = true, order = 7 },
         RAID_WARNING = { enabled = true, order = 8 },
         INSTANCE_CHAT = { enabled = true, order = 9 },
-        
+
         -- Guild channels
         GUILD = { enabled = true, order = 10 },
         OFFICER = { enabled = true, order = 11 },
-        
-        -- PvP channels
-        BATTLEGROUND = { enabled = true, order = 12 },
 
         -- Quick-reply to the most recent whisper sender (auto-resolved target)
         REPLY = { enabled = false, order = 13 },
     },
-    
+
     -- Numbered channels (General, Trade, LocalDefense, etc.)
     numberedChannels = {
         enabled = true,
@@ -89,14 +85,12 @@ ns.ChannelInfo = {
     YELL = { labelKey = "CHAT_YELL", command = "YELL", requiresTarget = false },
     EMOTE = { labelKey = "CHAT_EMOTE", command = "EMOTE", requiresTarget = false },
     WHISPER = { labelKey = "CHAT_WHISPER", command = "WHISPER", requiresTarget = true },
-    BN_WHISPER = { labelKey = "CHAT_BN_WHISPER", command = "BN_WHISPER", requiresTarget = true },
     PARTY = { labelKey = "CHAT_PARTY", command = "PARTY", requiresTarget = false },
     RAID = { labelKey = "CHAT_RAID", command = "RAID", requiresTarget = false },
     RAID_WARNING = { labelKey = "CHAT_RAID_WARNING", command = "RAID_WARNING", requiresTarget = false },
     INSTANCE_CHAT = { labelKey = "CHAT_INSTANCE", command = "INSTANCE_CHAT", requiresTarget = false },
     GUILD = { labelKey = "CHAT_GUILD", command = "GUILD", requiresTarget = false },
     OFFICER = { labelKey = "CHAT_OFFICER", command = "OFFICER", requiresTarget = false },
-    BATTLEGROUND = { labelKey = "CHAT_BATTLEGROUND", command = "BATTLEGROUND", requiresTarget = false },
     REPLY = { labelKey = "CHAT_REPLY", command = "REPLY", requiresTarget = true },
 }
 
@@ -135,25 +129,6 @@ end
 -- Blizzard's chat helpers moved onto the ChatFrameUtil namespace; the bare
 -- ChatEdit_* globals remain as compatibility shims. Prefer the namespace and
 -- fall back, the same way OpenChatWithFallback above does.
-local function ChooseBoxForSend()
-    if ChatFrameUtil and ChatFrameUtil.ChooseBoxForSend then
-        return ChatFrameUtil.ChooseBoxForSend()
-    end
-    if ChatEdit_ChooseBoxForSend then
-        return ChatEdit_ChooseBoxForSend()
-    end
-    return nil
-end
-
-local function SetLastActiveWindow(editBox)
-    if not editBox then return end
-    if ChatFrameUtil and ChatFrameUtil.SetLastActiveWindow then
-        ChatFrameUtil.SetLastActiveWindow(editBox)
-    elseif ChatEdit_SetLastActiveWindow then
-        ChatEdit_SetLastActiveWindow(editBox)
-    end
-end
-
 local function ActivateChat(editBox)
     if not editBox then return end
     if ChatFrameUtil and ChatFrameUtil.ActivateChat then
@@ -174,6 +149,43 @@ local function GetNumberedChannelIdByName(name)
         end
     end
     return nil
+end
+
+-- Point an edit box at a channel descriptor, making it the sticky type too.
+--
+-- After a message is sent, Blizzard keeps the chat type only when its
+-- ChatTypeInfo entry is marked sticky, and Yell, Emote and Raid Warning are
+-- not: the box falls back to the last sticky type, so a Yell picked on the bar
+-- turned back into Say while its button stayed lit. The bar's selection is the
+-- player's choice of channel, so it is made sticky outright.
+--
+-- Returns false when the descriptor names no channel the box can take.
+local function PointEditBoxAt(editBox, channelData)
+    local chatType, channelTarget
+    if channelData.isNumbered then
+        chatType = "CHANNEL"
+        -- Resolve the current id by name: ids can change between zones
+        channelTarget = channelData.name and GetNumberedChannelIdByName(channelData.name) or channelData.id
+    else
+        local info = ns.ChannelInfo[channelData.channelType]
+        if not info then return false end
+        chatType = info.command
+    end
+
+    if editBox.SetChatType then
+        editBox:SetChatType(chatType)
+        editBox:SetStickyType(chatType)
+        if channelTarget then
+            editBox:SetChannelTarget(channelTarget)
+        end
+    elseif editBox.SetAttribute then
+        editBox:SetAttribute("chatType", chatType)
+        editBox:SetAttribute("stickyType", chatType)
+        if channelTarget then
+            editBox:SetAttribute("channelTarget", channelTarget)
+        end
+    end
+    return true
 end
 
 -- Get active settings based on profile mode
@@ -199,7 +211,7 @@ function ChatBar:Initialize()
     self:CreateBarFrame()
     self:SetupChatFrameHooks()
     self:RegisterEvents()
-    
+
     currentChatFrame = ChatFrame1
 end
 
@@ -283,6 +295,21 @@ function ChatBar:ValidateProfile(profile)
     if profile.backgroundColor ~= nil and type(profile.backgroundColor) ~= "table" then
         profile.backgroundColor = nil
     end
+
+    -- Channels retired between releases. A stale entry never shows, but it
+    -- stays in the saved file, and a selection on one could never light up.
+    if type(profile.channels) == "table" then
+        for channelType in pairs(profile.channels) do
+            if not ns.ChannelInfo[channelType] then
+                profile.channels[channelType] = nil
+            end
+        end
+    end
+
+    local active = profile.activeChannel
+    if type(active) == "table" and not active.isNumbered and not ns.ChannelInfo[active.channelType] then
+        profile.activeChannel = nil
+    end
 end
 
 -- Bring a saved profile up to the current settings schema. Runs before defaults
@@ -305,6 +332,21 @@ function ChatBar:MigrateProfile(profile)
         profile.skinName = nil
     end
 
+    -- v4: the Battle.net Whisper button folded into Whisper, which now opens
+    -- the client's smart whisper and reaches Battle.net friends too, and the
+    -- Battleground channel went: battlegrounds use Instance chat. Anyone who had
+    -- the Battle.net button keeps a whisper button. ValidateProfile then drops
+    -- both retired entries.
+    if version < 4 and type(profile.channels) == "table" then
+        local bnet = profile.channels.BN_WHISPER
+        if type(bnet) == "table" and bnet.enabled then
+            if type(profile.channels.WHISPER) ~= "table" then
+                profile.channels.WHISPER = {}
+            end
+            profile.channels.WHISPER.enabled = true
+        end
+    end
+
     profile.version = ns.Defaults.version
 
     self:ValidateProfile(profile)
@@ -322,7 +364,7 @@ end
 -- Create main bar frame
 function ChatBar:CreateBarFrame()
     if barFrame then return end
-    
+
     -- Load the player's theme
     local settings = self:GetSettings()
     ns.Design:LoadTheme(settings.theme)
@@ -333,7 +375,7 @@ function ChatBar:CreateBarFrame()
 
     -- Build the bar's themed surfaces
     ns.Design:BuildBar(barFrame)
-    
+
     -- Set initial position (will be overridden by saved position if exists)
     if settings.barPosition then
         barFrame:SetPoint(settings.barPosition.point, UIParent, settings.barPosition.relativePoint, settings.barPosition.x, settings.barPosition.y)
@@ -341,21 +383,21 @@ function ChatBar:CreateBarFrame()
         -- Default: Above chat frame tabs (chat tabs are about 20px tall)
         barFrame:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, 24)
     end
-    
-    -- Make draggable
+
+    -- Make draggable. Clamped so neither a drag nor a position saved at another
+    -- resolution can leave the bar off-screen with no way to grab it back.
     barFrame:SetMovable(true)
+    barFrame:SetClampedToScreen(true)
     barFrame:EnableMouse(true)
     barFrame:RegisterForDrag("LeftButton")
-    barFrame:SetScript("OnDragStart", function(self)
-        local settings = ChatBar:GetSettings()
-        if not settings.lockPosition then
-            self:StartMoving()
+    barFrame:SetScript("OnDragStart", function(frame)
+        if not ChatBar:GetSettings().lockPosition then
+            frame:StartMoving()
         end
     end)
-    barFrame:SetScript("OnDragStop", function(self)
-        local settings = ChatBar:GetSettings()
-        if not settings.lockPosition then
-            self:StopMovingOrSizing()
+    barFrame:SetScript("OnDragStop", function(frame)
+        if not ChatBar:GetSettings().lockPosition then
+            frame:StopMovingOrSizing()
             ChatBar:SaveBarPosition()
         end
     end)
@@ -389,6 +431,45 @@ end
 function ChatBar:ResetBarPosition()
     self:GetSettings().barPosition = nil
     self:PositionBar(true)
+end
+
+-- Put the bar where the active profile says: its saved spot, or above the chat
+-- window when it has none. PositionBar alone keeps whatever position the bar
+-- already has, which after a profile switch is the *old* profile's.
+function ChatBar:RestoreBarPosition()
+    if not barFrame then return end
+
+    local pos = self:GetSettings().barPosition
+    if pos then
+        barFrame:ClearAllPoints()
+        barFrame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+    else
+        self:PositionBar(true)
+    end
+end
+
+-- Switch between the account-wide and per-character profile.
+function ChatBar:SetProfileMode(mode)
+    if ns.db.profileMode == mode then return end
+    ns.db.profileMode = mode
+    self:OnProfileChanged()
+end
+
+-- Re-read everything cached from the active profile. Called whenever the
+-- profile in effect is replaced underneath the addon: a mode switch or a reset.
+function ChatBar:OnProfileChanged()
+    -- The remembered selection and the resolved accent both belong to the
+    -- profile that was just swapped out.
+    self.activeChannel = self:GetSettings().activeChannel
+    ns.Theme:Invalidate()
+
+    self:Refresh()
+    self:RestoreBarPosition()
+
+    if ns.Config and ns.Config.panel then
+        ns.Config:RefreshPanel(ns.Config.panel)
+    end
+    ns.EditModeDialog:Refresh()
 end
 
 -- Repaint the bar from the current theme
@@ -443,12 +524,12 @@ function ChatBar:PositionBar(ignoreLock)
         -- Keep current position
         return
     end
-    
+
     if not currentChatFrame then return end
-    
+
     -- Auto-position relative to chat frame (above tabs)
     barFrame:ClearAllPoints()
-    
+
     if settings.orientation == "horizontal" then
         barFrame:SetPoint("BOTTOMLEFT", currentChatFrame, "TOPLEFT", 0, 24)
     else -- vertical
@@ -465,7 +546,7 @@ end
 -- Register events using self[event] pattern
 function ChatBar:RegisterEvents()
     if not barFrame then return end
-    
+
     barFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     barFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     barFrame:RegisterEvent("PLAYER_GUILD_UPDATE")
@@ -473,7 +554,8 @@ function ChatBar:RegisterEvents()
     barFrame:RegisterEvent("CHANNEL_UI_UPDATE")
     barFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     barFrame:RegisterEvent("UPDATE_CHAT_WINDOWS")
-    
+    barFrame:RegisterEvent("UPDATE_CHAT_COLOR")
+
     -- Chat message events for flash notifications (always registered)
     barFrame:RegisterEvent("CHAT_MSG_SAY")
     barFrame:RegisterEvent("CHAT_MSG_YELL")
@@ -490,7 +572,7 @@ function ChatBar:RegisterEvents()
     barFrame:RegisterEvent("CHAT_MSG_GUILD")
     barFrame:RegisterEvent("CHAT_MSG_OFFICER")
     barFrame:RegisterEvent("CHAT_MSG_CHANNEL")
-    
+
     barFrame:SetScript("OnEvent", function(frame, event, ...)
         if ChatBar[event] then
             ChatBar[event](ChatBar, ...)
@@ -502,10 +584,31 @@ function ChatBar:RegisterEvents()
 end
 
 -- Individual event handlers
-function ChatBar:PLAYER_ENTERING_WORLD()
+function ChatBar:PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
     self:UpdateButtons()
     currentChatFrame = ChatFrame1
     self:PositionBar()
+
+    -- Only on login and reload: after a plain loading screen the edit box still
+    -- holds whatever the player has been using.
+    if isInitialLogin or isReloadingUi then
+        self:ApplyActiveChannelToEditBox()
+    end
+end
+
+-- Point the chat edit box at the remembered selection, without opening it.
+--
+-- The selection survives a reload but the edit box's sticky type does not, so
+-- without this the first message after a login would go to Say while another
+-- button is lit.
+function ChatBar:ApplyActiveChannelToEditBox()
+    local active = self.activeChannel
+    if not (active and self:IsHistoryEntryAvailable(active)) then return end
+
+    local editBox = currentChatFrame and currentChatFrame.editBox
+    if editBox then
+        PointEditBoxAt(editBox, active)
+    end
 end
 
 function ChatBar:GROUP_ROSTER_UPDATE()
@@ -532,32 +635,40 @@ function ChatBar:UPDATE_CHAT_WINDOWS()
     self:PositionBar()
 end
 
+-- The player recoloured a chat type. Deferred a frame because Blizzard's own
+-- handler for this event is what writes the new colour into ChatTypeInfo, and
+-- it is not guaranteed to have run before this one.
+function ChatBar:UPDATE_CHAT_COLOR()
+    C_Timer.After(0, function()
+        ChatBar:RefreshAllButtons()
+    end)
+end
+
+-- Secret Values (12.0): a chat payload field can arrive as a secret, and
+-- comparing one errors. A secret cannot be matched against anything, so it is
+-- treated as no match.
+local function IsReadable(value)
+    return not (issecretvalue and issecretvalue(value))
+end
+
 -- Handle chat message events for flash notifications
 function ChatBar:HandleChatMessageEvent(event, ...)
     local settings = self:GetSettings()
     if not settings.flashNotifications then return end
-    
-    -- Get sender GUID (12th parameter)
-    local playerGUID = select(12, ...)
-    
-    -- Check if message is from the player (ignore own messages)
-    -- Use pcall to safely handle "secret values" in WoW's taint system
-    local myGUID = UnitGUID("player")
-    local success, isOwnMessage = pcall(function()
-        return playerGUID == myGUID
-    end)
 
-    if success and isOwnMessage then
-        return -- Don't flash for own messages
+    -- Don't flash for the player's own messages (sender GUID is the 12th arg)
+    local senderGUID = select(12, ...)
+    if IsReadable(senderGUID) and senderGUID == UnitGUID("player") then
+        return
     end
-    
+
     -- Extract channel type from event name (strip "CHAT_MSG_" prefix)
     local channelType
-    
+
     if event == "CHAT_MSG_CHANNEL" then
         -- For numbered channels, get the channel number from parameters
         local chanNum = select(8, ...)
-        if type(chanNum) == "number" then
+        if type(chanNum) == "number" and IsReadable(chanNum) then
             -- Find button for this numbered channel
             for _, button in pairs(activeButtons) do
                 if button.channelData and button.channelData.isNumbered and button.channelData.id == chanNum then
@@ -570,7 +681,7 @@ function ChatBar:HandleChatMessageEvent(event, ...)
     else
         -- For regular channels, strip "CHAT_MSG_" prefix to get channel type
         channelType = event:sub(10) -- Remove "CHAT_MSG_" (9 chars + 1)
-        
+
         -- Map event suffixes to our channel types
         if channelType == "PARTY_LEADER" then
             channelType = "PARTY"
@@ -578,11 +689,14 @@ function ChatBar:HandleChatMessageEvent(event, ...)
             channelType = "RAID"
         elseif channelType == "INSTANCE_CHAT_LEADER" then
             channelType = "INSTANCE_CHAT"
+        elseif channelType == "BN_WHISPER" then
+            -- One whisper button covers both kinds of whisper
+            channelType = "WHISPER"
         end
     end
-    
+
     if not channelType then return end
-    
+
     -- Find button for this channel type
     for _, button in pairs(activeButtons) do
         if button.channelData and button.channelData.channelType == channelType then
@@ -592,44 +706,34 @@ function ChatBar:HandleChatMessageEvent(event, ...)
     end
 end
 
+-- Pulse a button for the configured duration. A message arriving mid-pulse
+-- restarts it, so the alert always runs its full length after the latest one.
 function ChatBar:FlashButton(button)
     if not button then return end
-    
-    local settings = self:GetSettings()
-    local duration = settings.flashDuration or 3
-    
-    -- Stop any existing flash
-    if button.isFlashing then
-        self:StopFlashButton(button)
+
+    if button.flashTimer then
+        button.flashTimer:Cancel()
     end
-    
-    -- Start the themed alert pulse
+
+    -- StartAlert stops a pulse already running before it starts the new one
     ns.Design:StartAlert(button)
-    button.flashStopTime = GetTime() + duration
-    
-    -- Set up timer to stop flashing after duration
-    if not button.flashTimer then
-        button.flashTimer = C_Timer.NewTicker(0.1, function()
-            if button.flashStopTime and GetTime() >= button.flashStopTime then
-                ChatBar:StopFlashButton(button)
-            end
-        end)
-    end
+
+    local duration = self:GetSettings().flashDuration or ns.Defaults.flashDuration
+    button.flashTimer = C_Timer.NewTimer(duration, function()
+        button.flashTimer = nil
+        ChatBar:StopFlashButton(button)
+    end)
 end
 
 function ChatBar:StopFlashButton(button)
     if not button then return end
-    
-    button.flashStopTime = nil
-    
-    -- Stop the themed alert pulse
-    ns.Design:StopAlert(button)
-    
-    -- Cancel timer if it exists
+
     if button.flashTimer then
         button.flashTimer:Cancel()
         button.flashTimer = nil
     end
+
+    ns.Design:StopAlert(button)
 end
 
 -- Check if a channel is available
@@ -637,45 +741,37 @@ function ChatBar:IsChannelAvailable(channelType)
     if channelType == "SAY" or channelType == "YELL" or channelType == "EMOTE" then
         return true
     end
-    
+
     if channelType == "WHISPER" then
         return true -- Always available but needs target
     end
-    
+
     if channelType == "REPLY" then
         return true -- Always available; target auto-resolved from last whisper
     end
-    
+
     if channelType == "PARTY" then
         return IsInGroup() and not IsInRaid()
     end
-    
+
     if channelType == "RAID" or channelType == "RAID_WARNING" then
         return IsInRaid()
     end
-    
+
     if channelType == "INSTANCE_CHAT" then
         return IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
     end
-    
+
     if channelType == "GUILD" then
         return IsInGuild()
     end
-    
+
     if channelType == "OFFICER" then
-        return IsInGuild() and C_GuildInfo.CanSpeakInGuildChat()
+        -- CanSpeakInGuildChat is the guild-chat permission, which every member
+        -- has; officer chat follows the officer rank.
+        return IsInGuild() and C_GuildInfo.IsGuildOfficer()
     end
-    
-    if channelType == "BATTLEGROUND" then
-        -- C_PvP.IsActiveBattlefield is Retail/Forever only. The Classic clients
-        -- never got it, so fall back to the instance type, which every flavor
-        -- reports the same way.
-        if C_PvP and C_PvP.IsActiveBattlefield then
-            return C_PvP.IsActiveBattlefield()
-        end
-        return select(2, IsInInstance()) == "pvp"
-    end
-    
+
     return false
 end
 
@@ -683,18 +779,18 @@ end
 function ChatBar:GetNumberedChannels()
     local channels = {}
     local settings = self:GetSettings()
-    
+
     if not settings.numberedChannels.enabled then
         return channels
     end
-    
+
     local channelList = { GetChannelList() }
     local excluded = settings.numberedChannels.excluded or {}
-    
+
     for i = 1, #channelList, 3 do
         local id   = channelList[i]
         local name = channelList[i + 1]
-        
+
         if id and name and not excluded[name] then
             table.insert(channels, {
                 id = id,
@@ -705,28 +801,35 @@ function ChatBar:GetNumberedChannels()
             })
         end
     end
-    
+
     return channels
 end
 
--- Update buttons based on available channels
-function ChatBar:UpdateButtons()
-    if not barFrame then return end
-    
-    local settings = self:GetSettings()
-    
-    -- Hide all existing buttons. Stopping the alert first matters: a pooled
-    -- button that goes out of service mid-pulse would otherwise keep its ticker
-    -- running and carry the old channel's alert state into its next channel.
-    for _, button in pairs(activeButtons) do
-        self:StopFlashButton(button)
-        button:Hide()
+-- Identifies one entry of the visible channel list. Numbered channels carry
+-- their id too: a renumbered channel has to be rebuilt to show its new digit.
+local function ChannelKey(channelData)
+    if channelData.isNumbered then
+        return channelData.id .. ":" .. channelData.name
     end
-    wipe(activeButtons)
-    
+    return channelData.channelType
+end
+
+-- What the bar showed after its last rebuild, as a list of ChannelKeys
+local shownLayoutKey = nil
+
+-- Update buttons based on available channels.
+--
+-- force: rebuild even when the visible channels are unchanged. Anything that
+-- changes how buttons look rather than which ones exist (theme, profile, size,
+-- orientation) must pass it.
+function ChatBar:UpdateButtons(force)
+    if not barFrame then return end
+
+    local settings = self:GetSettings()
+
     -- Build list of visible channels
     local visibleChannels = {}
-    
+
     -- Add standard channels
     for channelType, config in pairs(settings.channels) do
         if config.enabled and self:IsChannelAvailable(channelType) then
@@ -737,16 +840,36 @@ function ChatBar:UpdateButtons()
             })
         end
     end
-    
+
     -- Add numbered channels
     local numberedChannels = self:GetNumberedChannels()
     for _, channel in ipairs(numberedChannels) do
         table.insert(visibleChannels, channel)
     end
-    
+
     -- Sort by order
     table.sort(visibleChannels, function(a, b) return a.order < b.order end)
-    
+
+    -- Roster and channel events fire far more often than the visible set
+    -- changes. Rebuilding on each of them would restyle every button and cut
+    -- short any alert in progress, so stop here when nothing has moved.
+    local keys = {}
+    for i, channelData in ipairs(visibleChannels) do
+        keys[i] = ChannelKey(channelData)
+    end
+    local layoutKey = table.concat(keys, ",")
+    if not force and layoutKey == shownLayoutKey then return end
+    shownLayoutKey = layoutKey
+
+    -- Hide all existing buttons. Stopping the alert first matters: a pooled
+    -- button that goes out of service mid-pulse would otherwise keep its timer
+    -- running and carry the old channel's alert state into its next channel.
+    for _, button in pairs(activeButtons) do
+        self:StopFlashButton(button)
+        button:Hide()
+    end
+    wipe(activeButtons)
+
     -- Create/show buttons
     for i, channelData in ipairs(visibleChannels) do
         local button = self:GetOrCreateButton(i)
@@ -754,10 +877,10 @@ function ChatBar:UpdateButtons()
         table.insert(activeButtons, button)
         button:Show()
     end
-    
+
     -- Layout buttons
     self:LayoutButtons()
-    
+
     -- Update bar visibility
     barFrame:SetShown(settings.barVisible and #activeButtons > 0)
 end
@@ -767,26 +890,25 @@ function ChatBar:GetOrCreateButton(index)
     if buttonPool[index] then
         return buttonPool[index]
     end
-    
+
     local button = CreateFrame("Button", "ChatBarButton" .. index, barFrame)
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
     -- Flash state tracking; the pulse itself belongs to the design engine
     button.isFlashing = false
-    button.flashStopTime = nil
 
     -- Scripts are set before Design builds the button, so the engine's own
     -- hover and press hooks compose on top of these rather than replacing them.
-    button:SetScript("OnClick", function(self, mouseButton)
-        ChatBar:OnButtonClick(self, mouseButton)
+    button:SetScript("OnClick", function(btn, mouseButton)
+        ChatBar:OnButtonClick(btn, mouseButton)
     end)
 
-    button:SetScript("OnEnter", function(self)
-        ChatBar:OnButtonEnter(self)
+    button:SetScript("OnEnter", function(btn)
+        ChatBar:OnButtonEnter(btn)
     end)
 
-    button:SetScript("OnLeave", function(self)
-        ChatBar:OnButtonLeave(self)
+    button:SetScript("OnLeave", function(btn)
+        ChatBar:OnButtonLeave(btn)
     end)
 
     -- Builds the texture stack and the label (exposed as button.text)
@@ -849,7 +971,7 @@ function ChatBar:SetupButton(button, channelData)
     button.text:SetText(self:GetButtonGlyph(channelData))
 
     ns.Design:StyleButton(button, {
-        size = settings.buttonSize or 24,
+        size = settings.buttonSize or ns.Defaults.buttonSize,
         channelColor = chatColor,
         numbered = channelData.isNumbered,
         fontSize = settings.fontSize or ns.Design:GetDefaultFontSize(),
@@ -865,13 +987,13 @@ end
 -- Layout buttons based on orientation
 function ChatBar:LayoutButtons()
     if #activeButtons == 0 then return end
-    
+
     local Pixel = ns.Pixel
     local settings = self:GetSettings()
 
     local padding = ns.Design:GetPadding()
     local spacing = ns.Design:GetSpacing()
-    local buttonSize = settings.buttonSize or 24
+    local buttonSize = settings.buttonSize or ns.Defaults.buttonSize
     local count = #activeButtons
 
     if settings.orientation == "horizontal" then
@@ -982,26 +1104,9 @@ function ChatBar:ActivateChannel(channelData, opts)
     local switched = false
 
     if channelData.isNumbered then
-        -- Numbered channel - resolve the current id by name (ids can change)
-        local targetId = channelData.id
-        if channelData.name then
-            targetId = GetNumberedChannelIdByName(channelData.name) or targetId
-        end
-
         local editBox = OpenChatWithFallback(preservedText, chatFrame)
         if editBox then
-            if editBox.SetChatType then
-                editBox:SetChatType("CHANNEL")
-            elseif editBox.SetAttribute then
-                editBox:SetAttribute("chatType", "CHANNEL")
-            end
-
-            if editBox.SetChannelTarget then
-                editBox:SetChannelTarget(targetId)
-            elseif editBox.SetAttribute then
-                editBox:SetAttribute("channelTarget", targetId)
-            end
-
+            PointEditBoxAt(editBox, channelData)
             RefreshEditBoxHeader(editBox)
             -- Restore cursor position to end of preserved text
             if preservedText ~= "" then
@@ -1016,22 +1121,20 @@ function ChatBar:ActivateChannel(channelData, opts)
             if channelData.channelType == "REPLY" then
                 -- Quick-reply: target is auto-resolved from the last whisper; never recorded.
                 return self:QuickReplyLastWhisper(chatFrame, preservedText)
-            elseif info.requiresTarget and (channelData.channelType == "WHISPER" or channelData.channelType == "BN_WHISPER") then
-                -- For whisper, open chat with /w command (needs a target; never recorded)
-                local cmd = channelData.channelType == "BN_WHISPER" and "/bw " or "/w "
-                -- Append preserved text after the command
-                OpenChatWithFallback(cmd .. preservedText, chatFrame)
+            elseif channelData.channelType == "WHISPER" then
+                -- Open chat with the bare whisper command so the player types
+                -- the target next (never recorded). SMART_WHISPER is the
+                -- client's own, localized /w, and it resolves a BattleTag or a
+                -- Battle.net friend to a Battle.net whisper by itself.
+                -- The preserved text cannot ride along: OpenChat parses the
+                -- line it is given, so "/w on my way" would whisper "my way"
+                -- to "on".
+                OpenChatWithFallback((SLASH_SMART_WHISPER1 or "/w") .. " ", chatFrame)
                 return true
             else
-                -- Open chat and set channel type using proper API
                 local editBox = OpenChatWithFallback(preservedText, chatFrame)
                 if editBox then
-                    if editBox.SetChatType then
-                        editBox:SetChatType(info.command)
-                    elseif editBox.SetAttribute then
-                        editBox:SetAttribute("chatType", info.command)
-                    end
-
+                    PointEditBoxAt(editBox, channelData)
                     RefreshEditBoxHeader(editBox)
                     -- Restore cursor position to end of preserved text
                     if preservedText ~= "" then
@@ -1094,9 +1197,9 @@ end
 function ChatBar:OnButtonEnter(button)
     local L = ns.L
     GameTooltip:SetOwner(button, "ANCHOR_TOP")
-    
+
     local channelData = button.channelData
-    
+
     if channelData.isNumbered then
         GameTooltip:SetText(channelData.name)
         GameTooltip:AddLine(L.TOOLTIP_CHANNEL .. " " .. channelData.id, 1, 1, 1)
@@ -1108,7 +1211,7 @@ function ChatBar:OnButtonEnter(button)
             GameTooltip:AddLine(L.TOOLTIP_CLICK_SWITCH, 0.7, 0.7, 0.7)
         end
     end
-    
+
     GameTooltip:Show()
 end
 
@@ -1122,11 +1225,11 @@ function ChatBar:ToggleBar()
     local L = ns.L
     local settings = self:GetSettings()
     settings.barVisible = not settings.barVisible
-    
+
     if barFrame then
         barFrame:SetShown(settings.barVisible and #activeButtons > 0)
     end
-    
+
     print(string.format("%s: %s %s", L.ADDON_NAME, L.MSG_BAR_TOGGLED, settings.barVisible and L.MSG_BAR_SHOWN or L.MSG_BAR_HIDDEN))
 end
 
@@ -1161,29 +1264,31 @@ function ChatBar:Refresh()
     end
 
     self:RefreshBarTextures()
-    self:UpdateButtons()
+    self:UpdateButtons(true)
     self:PositionBar()
 end
 
 -- Slash command handler
 function ChatBar:HandleSlashCommand(msg)
     local L = ns.L
-    
+
     -- Check if addon is initialized
     if not ns.db then
         print(string.format("%s: %s", L.ADDON_NAME, L.MSG_STILL_LOADING))
         return
     end
-    
+
     msg = msg:lower():trim()
-    
+
     if msg == "toggle" then
         self:ToggleBar()
     elseif msg == "show" then
         local settings = self:GetSettings()
         settings.barVisible = true
         if barFrame then
-            barFrame:Show()
+            -- Same rule as ToggleBar: a bar with no channel to offer stays
+            -- hidden until one becomes available.
+            barFrame:SetShown(#activeButtons > 0)
         end
         print(string.format("%s: %s", L.ADDON_NAME, L.MSG_BAR_SHOWN))
     elseif msg == "hide" then
@@ -1205,15 +1310,7 @@ function ChatBar:HandleSlashCommand(msg)
             ns.db = ChatBarDB
             self:ApplyThemeFontDefault(ns.db)
         end
-        -- The remembered selection lives in the profile that was just replaced;
-        -- drop the in-memory copy too or the accent stays on a stale channel.
-        self.activeChannel = nil
-        ns.Theme:Invalidate()
-        self:Refresh()
-        -- Refresh config UI to show new values
-        if ns.Config and ns.Config.panel then
-            ns.Config:RefreshPanel(ns.Config.panel)
-        end
+        self:OnProfileChanged()
         print(string.format("%s: %s", L.ADDON_NAME, L.MSG_RESET_COMPLETE))
     elseif msg == "help" or msg == "?" then
         print(string.format("%s v%s - %s", L.ADDON_NAME, self.VERSION, L.CMD_HELP_HEADER))
@@ -1231,40 +1328,21 @@ function ChatBar:HandleSlashCommand(msg)
     end
 end
 
--- Keybinding functions
+-- Keybinding entry point. Goes through ActivateChannel, the same path a button
+-- click takes, so a keybind switch lights up the active button and a whisper
+-- opens as "/w " for the target instead of a target-less whisper box.
 function ChatBar:SwitchToChannel(channelType)
     local L = ns.L
     local info = ns.ChannelInfo[channelType]
     if not info then return end
-    
-    -- Check if channel is available
+
     if not self:IsChannelAvailable(channelType) then
-        print(string.format("%s: Channel %s not available", L.ADDON_NAME, channelType))
+        local message = string.format(L.MSG_CHANNEL_UNAVAILABLE, L[info.labelKey])
+        print(string.format("%s: %s", L.ADDON_NAME, message))
         return
     end
-    
-    -- Switch to channel
-    local editBox = ChooseBoxForSend()
-    if editBox then
-        SetLastActiveWindow(editBox)
-        RefreshEditBoxHeader(editBox)
-        
-        local chatType = info.command
-        if editBox.SetChatType then
-            editBox:SetChatType(chatType)
-        elseif editBox.SetAttribute then
-            editBox:SetAttribute("chatType", chatType)
-        end
 
-        RefreshEditBoxHeader(editBox)
-        
-        if not editBox:IsShown() then
-            ActivateChat(editBox)
-        end
-
-        -- Record this switch so it can be reached via history cycling
-        self:RecordChannelHistory({ isNumbered = false, channelType = channelType })
-    end
+    self:ActivateChannel({ isNumbered = false, channelType = channelType }, { preserveText = true, record = true })
 end
 
 -- Determine whether two channel history descriptors refer to the same channel.
@@ -1373,7 +1451,7 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
     if event == "ADDON_LOADED" and loadedAddon == addonName then
         local L = ns.L
-        
+
         -- Initialize SavedVariables FIRST
         ns.db = ChatBarDB or {}
         if not ChatBarDB then
@@ -1395,21 +1473,21 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
             ChatBar:MigrateProfile(ns.charDB)
             ChatBar:MergeDefaults(ns.charDB, ns.Defaults)
         end
-        
+
         -- Now initialize UI
         ChatBar:Initialize()
-        
+
         -- Initialize Config
         if ns.Config then
             ns.Config:Initialize()
         end
-        
+
         -- Print loaded message if not hidden
         local settings = ChatBar:GetSettings()
         if not settings.hideLoadedMessage then
             print(string.format("%s v%s %s", L.ADDON_NAME, ChatBar.VERSION, L.ADDON_LOADED))
         end
-        
+
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)

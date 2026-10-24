@@ -10,7 +10,7 @@
 -- revert step. Built the first time it opens, so it costs nothing for anyone
 -- who never selects the bar.
 
-local addonName, ns = ...
+local _, ns = ...
 
 local Dialog = {}
 ns.EditModeDialog = Dialog

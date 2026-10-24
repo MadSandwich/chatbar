@@ -4,11 +4,13 @@ package-as: ChatBar
 ignore:
   - .git
   - .claude
-  - .github/copilot-instructions.md
-  - .github/prompts
-  - .github/skills
+  - .mcp.json
+  - .github
   - .vscode
   - .luals
+  - .luacheckrc
+  - .luarc.json
+  - CLAUDE.md
   - README.md
   - .gitignore
 

@@ -9,7 +9,7 @@
 -- is (its channel, whether it is the active one, whether it is available) and
 -- this file decides what that looks like under the current theme.
 
-local addonName, ns = ...
+local _, ns = ...
 
 local Design = {}
 ns.Design = Design
@@ -341,27 +341,27 @@ function Design:InstallStateScripts(button)
     if button.cbStateHooked then return end
     button.cbStateHooked = true
 
-    button:HookScript("OnEnter", function(self)
-        self.cbHovered = true
-        Design:ApplyState(self)
+    button:HookScript("OnEnter", function(btn)
+        btn.cbHovered = true
+        Design:ApplyState(btn)
     end)
 
-    button:HookScript("OnLeave", function(self)
-        self.cbHovered = false
+    button:HookScript("OnLeave", function(btn)
+        btn.cbHovered = false
         -- A drag that ends off the button never delivers OnMouseUp, so the
         -- pressed state has to clear here too or the button stays sunk.
-        self.cbPressed = false
-        Design:ApplyState(self)
+        btn.cbPressed = false
+        Design:ApplyState(btn)
     end)
 
-    button:HookScript("OnMouseDown", function(self)
-        self.cbPressed = true
-        Design:ApplyState(self)
+    button:HookScript("OnMouseDown", function(btn)
+        btn.cbPressed = true
+        Design:ApplyState(btn)
     end)
 
-    button:HookScript("OnMouseUp", function(self)
-        self.cbPressed = false
-        Design:ApplyState(self)
+    button:HookScript("OnMouseUp", function(btn)
+        btn.cbPressed = false
+        Design:ApplyState(btn)
     end)
 end
 

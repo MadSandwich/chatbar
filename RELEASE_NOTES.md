@@ -1,5 +1,10 @@
 # ChatBar Release Notes
 
+## 3.2.1
+
+- Bug fixes.
+- Performance improvements.
+
 ## 3.2.0
 
 - **The bar can now be moved from HUD Edit Mode** on Retail and Forever. Open

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "mechanic": {
+      "command": "D:\\Projects\\Mechanic\\desktop\\.venv\\Scripts\\mech.exe",
+      "args": ["mcp"]
+    },
+    "wow": {
+      "command": "node",
+      "args": ["D:\\Projects\\_tools\\hated-wow-mcp\\node_modules\\hated-wow-mcp\\dist\\index.js"],
+      "env": {
+        "WOW_DEFAULT_FLAVOR": "mainline",
+        "WOW_INSTALL_PATH": "D:/BattleNet/World of Warcraft",
+        "WOW_ADDON_PATH": "D:/Projects/chatbar",
+        "WOW_MCP_DATA_DIR": "C:/Users/Artem/AppData/Local/hated-wow-mcp/Cache"
+      }
+    }
+  }
+}

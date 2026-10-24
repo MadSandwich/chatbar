@@ -19,7 +19,7 @@
 -- a second colour. Numbered channels drop to the grey literals and come out as
 -- clear glass.
 
-local addonName, ns = ...
+local _, ns = ...
 
 ns.ThemeRegistry = ns.ThemeRegistry or {}
 

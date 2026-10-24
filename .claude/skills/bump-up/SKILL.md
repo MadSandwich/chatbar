@@ -65,7 +65,7 @@ Update the same files the 3.1.1 bump did (commit `ef7c8f5`):
   - Never remove an existing number: an older client may still be live in some region, and pruning is the user's call.
 - **[ChatBar.lua](../../../ChatBar.lua)**: `ChatBar.VERSION`.
 - **[README.md](../../../README.md)**, "Supported Clients" table: set Version to the flavor's newest version and list the Interface numbers newest first.
-- **[.github/copilot-instructions.md](../../../.github/copilot-instructions.md)**, "Version Information": `Addon Version`, and the same table.
+- **[CLAUDE.md](../../../CLAUDE.md)**, "Flavors" table: the same Interface numbers, newest first.
 - **[RELEASE_NOTES.md](../../../RELEASE_NOTES.md)**: a new `## X.Y.Z` section at the top, or the pending one. Write one bullet per patch in the 3.1.1 style: `- **Updated for patch 12.1.5** (Interface 120105).`, then the API finding from step 2.
 
 Don't touch code, `.pkgmeta` or the release workflow.

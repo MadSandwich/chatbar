@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.1",
+  "runtime.builtin": {
+    "basic": "disable",
+    "debug": "disable",
+    "io": "disable",
+    "math": "disable",
+    "os": "disable",
+    "package": "disable",
+    "string": "disable",
+    "table": "disable",
+    "utf8": "disable"
+  },
+  "workspace.library": [
+    "C:/Users/Artem/.vscode/extensions/ketho.wow-api-0.22.3/Annotations/Core",
+    "C:/Users/Artem/.vscode/extensions/ketho.wow-api-0.22.3/Annotations/FrameXML"
+  ],
+  "workspace.ignoreDir": [".claude", ".github", ".vscode"],
+  "workspace.checkThirdParty": false,
+  "type.weakUnionCheck": true,
+  "diagnostics.globals": ["ChatBarDB", "ChatBarCharDB"]
+}

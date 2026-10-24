@@ -16,7 +16,7 @@
 -- near-black of the bar -- they are the numbered-channel look, not a fallback
 -- nobody sees.
 
-local addonName, ns = ...
+local _, ns = ...
 
 ns.ThemeRegistry = ns.ThemeRegistry or {}
 

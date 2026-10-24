@@ -16,7 +16,7 @@
 ## SavedVariablesPerCharacter: ChatBarCharDB
 
 # Localization files (load first -- themes reference L keys for their names)
-Locales\Locales.lua
+Locales\enUS.lua
 Locales\deDE.lua
 Locales\esES.lua
 Locales\frFR.lua

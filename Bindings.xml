@@ -14,9 +14,6 @@
     <Binding name="CHATBAR_SWITCH_WHISPER" category="BINDING_HEADER_CHATBAR">
         ChatBar_SwitchToChannel("WHISPER")
     </Binding>
-    <Binding name="CHATBAR_SWITCH_BN_WHISPER" category="BINDING_HEADER_CHATBAR">
-        ChatBar_SwitchToChannel("BN_WHISPER")
-    </Binding>
     <Binding name="CHATBAR_QUICK_REPLY" category="BINDING_HEADER_CHATBAR">
         ChatBar_QuickReplyLastWhisper()
     </Binding>
@@ -31,9 +28,6 @@
     </Binding>
     <Binding name="CHATBAR_SWITCH_OFFICER" category="BINDING_HEADER_CHATBAR">
         ChatBar_SwitchToChannel("OFFICER")
-    </Binding>
-    <Binding name="CHATBAR_SWITCH_BATTLEGROUND" category="BINDING_HEADER_CHATBAR">
-        ChatBar_SwitchToChannel("BATTLEGROUND")
     </Binding>
     <Binding name="CHATBAR_CYCLE_PREV" category="BINDING_HEADER_CHATBAR">
         ChatBar_CycleChannel(1)

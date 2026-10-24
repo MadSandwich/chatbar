@@ -15,7 +15,7 @@
 --   * the position lock is ignored here. The lock guards against a stray drag
 --     in play; Edit Mode is the one place the player is arranging the UI.
 
-local addonName, ns = ...
+local _, ns = ...
 
 local EditMode = {}
 ns.EditMode = EditMode
