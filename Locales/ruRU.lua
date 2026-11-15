@@ -97,7 +97,6 @@ L["MSG_CHANNEL_UNAVAILABLE"] = "Сейчас недоступно: %s"
 
 L["MSG_BAR_SHOWN"] = "Панель показана"
 L["MSG_BAR_HIDDEN"] = "Панель скрыта"
-L["MSG_BAR_TOGGLED"] = "Панель"
 L["MSG_RESET"] = "Сброс к настройкам по умолчанию..."
 L["MSG_RESET_COMPLETE"] = "Настройки сброшены!"
 L["MSG_STILL_LOADING"] = "Аддон все еще загружается, попробуйте еще раз через мгновение."

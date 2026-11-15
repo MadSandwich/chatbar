@@ -98,7 +98,6 @@ L["MSG_CHANNEL_UNAVAILABLE"] = "%s no está disponible en este momento."
 
 L["MSG_BAR_SHOWN"] = "Barra mostrada"
 L["MSG_BAR_HIDDEN"] = "Barra oculta"
-L["MSG_BAR_TOGGLED"] = "Barra"
 L["MSG_RESET"] = "Restableciendo valores predeterminados..."
 L["MSG_RESET_COMPLETE"] = "¡Configuración restablecida!"
 L["MSG_STILL_LOADING"] = "El addon aún se está cargando, inténtalo de nuevo en un momento."

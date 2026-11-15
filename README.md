@@ -109,7 +109,7 @@ plus optional `lighten` / `darken`, which the engine resolves at paint time.
 
 ### Localization
 
-- **Supported Languages**: English (enUS), German (deDE), Spanish (esES), French (frFR), Russian (ruRU)
+- **Supported Languages**: English (enUS), German (deDE), Spanish (esES), French (frFR), Russian (ruRU), Korean (koKR), Simplified Chinese (zhCN)
 - **UTF-8 Support**: Full multi-byte character support for Cyrillic, Asian, and other multi-byte character sets
 - **Auto-detection**: Uses your WoW client's language automatically
 - **Fallback System**: Defaults to English if translation missing
@@ -156,14 +156,15 @@ ChatBar/
     ├── esES.lua         # Spanish
     ├── frFR.lua         # French
     ├── ruRU.lua         # Russian
-    └── koKR.lua         # Korean
+    ├── koKR.lua         # Korean
+    └── zhCN.lua         # Simplified Chinese
 ```
 
 ### Extending Localization
 
 To add a new language:
 
-1. Create `Locales/xxXX.lua` (e.g., `zhCN.lua` for Chinese)
+1. Create `Locales/xxXX.lua` (e.g., `zhTW.lua` for Traditional Chinese)
 2. Add to `ChatBar.toc` file list
 3. Copy the structure of an existing translation such as `deDE.lua`; `enUS.lua` lists every key
 4. Translate all strings

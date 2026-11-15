@@ -11,7 +11,8 @@
 ## Category-esES: Chat
 ## Category-frFR: Discussion
 ## Category-ruRU: Чат
-## Category-koKR: 채팅
+## Category-koKR: 대화
+## Category-zhCN: 聊天
 ## SavedVariables: ChatBarDB
 ## SavedVariablesPerCharacter: ChatBarCharDB
 
@@ -22,6 +23,7 @@ Locales\esES.lua
 Locales\frFR.lua
 Locales\ruRU.lua
 Locales\koKR.lua
+Locales\zhCN.lua
 
 # Design primitives (pixel grid first, then the theme tokens built on it)
 Core\Pixel.lua

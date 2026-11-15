@@ -97,7 +97,6 @@ L["MSG_CHANNEL_UNAVAILABLE"] = "지금은 사용할 수 없습니다: %s"
 
 L["MSG_BAR_SHOWN"] = "바가 표시되었습니다."
 L["MSG_BAR_HIDDEN"] = "바가 숨겨졌습니다."
-L["MSG_BAR_TOGGLED"] = "바"
 L["MSG_RESET"] = "기본 설정으로 초기화 중..."
 L["MSG_RESET_COMPLETE"] = "설정이 초기화되었습니다!"
 L["MSG_STILL_LOADING"] = "애드온이 아직 로딩 중입니다. 잠시 후 다시 시도하세요."

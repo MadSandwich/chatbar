@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.2.1"
+ChatBar.VERSION = "3.2.2"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
@@ -1230,7 +1230,7 @@ function ChatBar:ToggleBar()
         barFrame:SetShown(settings.barVisible and #activeButtons > 0)
     end
 
-    print(string.format("%s: %s %s", L.ADDON_NAME, L.MSG_BAR_TOGGLED, settings.barVisible and L.MSG_BAR_SHOWN or L.MSG_BAR_HIDDEN))
+    print(string.format("%s: %s", L.ADDON_NAME, settings.barVisible and L.MSG_BAR_SHOWN or L.MSG_BAR_HIDDEN))
 end
 
 -- Repaint every visible button under the current theme (theme or accent swap)

@@ -1,5 +1,18 @@
 # ChatBar Release Notes
 
+## 3.2.2
+
+- **Simplified Chinese (zhCN) translation.** The bar, the settings panel, the
+  Edit Mode dialog and the key bindings are all translated, using the client's
+  own terms (说, 大喊, 小队, 团队, 公会, 密语, 按键设置, 编辑模式). Labels end in
+  the full-width colon the Chinese client uses. Expressway has no Chinese
+  glyphs, so on zhCN the bar uses the client's own font.
+- **The toggle message no longer repeats itself.** `/chatbar toggle` and its
+  key binding printed "ChatBar: Bar Bar shown"; they now print
+  "ChatBar: Bar shown", the same as `/chatbar show`.
+- **The Korean addon-list category is now 대화**, the standard name and the
+  Korean client's own word for chat.
+
 ## 3.2.1
 
 - Bug fixes.

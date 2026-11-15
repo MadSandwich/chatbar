@@ -46,7 +46,7 @@ Never report a change as working without saying which checks ran and whether it 
 
 Load order is the TOC order, and each file only reads modules loaded before it, except at runtime:
 
-1. `Locales/enUS.lua` creates `ns.L` (missing keys fall back to the key name) and sets the `BINDING_*` globals; `Locales/<locale>.lua` overrides keys for deDE, esES (also esMX), frFR, koKR and ruRU.
+1. `Locales/enUS.lua` creates `ns.L` (missing keys fall back to the key name) and sets the `BINDING_*` globals; `Locales/<locale>.lua` overrides keys for deDE, esES (also esMX), frFR, koKR, ruRU and zhCN.
 2. `Core/Pixel.lua`: the physical-pixel grid, snapping helpers and the four-strip 1px border. Never use `BackdropTemplate` for thin borders.
 3. `Core/Theme.lua`: accent and font resolution, colour maths, change notification (`Theme:NotifyChanged` invalidates caches and repaints everything).
 4. `Themes/*.lua`: token tables registered into `ns.ThemeRegistry`. Colour tokens are `{ r, g, b, a }` with optional `accent`, `channel`, `shade`, `darken`, `lighten` markers; `Themes/Flat.lua` documents the schema.
@@ -103,7 +103,7 @@ The bar joins Edit Mode without being an Edit Mode *system*: systems are saved i
 - **New chat channel:** `ns.Defaults.channels` and `ns.ChannelInfo` in `ChatBar.lua`, a `CHAT_<NAME>` key in `Locales/enUS.lua` and every translation, availability in `ChatBar:IsChannelAvailable`, a binding in `Bindings.xml` plus its `BINDING_NAME_*` string. The settings checkbox is generated from `ns.ChannelInfo`.
 - **New theme:** `Themes/<Name>.lua` listed in the TOC before `Design.lua`, `THEME_<NAME>` and `THEME_<NAME>_DESC` keys. Express the look in tokens and gradients only.
 - **New setting:** a default in `ns.Defaults` (merged into old profiles by `MergeDefaults`), a control in `Config.lua` and its `RefreshPanel` line, and repair rules in `ChatBar:ValidateProfile` if a stored value can go stale. Bump `ns.Defaults.version` and add a branch to `MigrateProfile` only when an existing value changes meaning.
-- **New UI string:** add it to `Locales/enUS.lua` and translate it in every locale file, using each client's own terms (Ketho's BlizzardInterfaceResources GlobalStrings). The bar is "Leiste" in deDE, "barra" in esES, "barre" in frFR, "바" in koKR, "панель" in ruRU.
+- **New UI string:** add it to `Locales/enUS.lua` and translate it in every locale file, using each client's own terms (Ketho's BlizzardInterfaceResources GlobalStrings). The bar is "Leiste" in deDE, "barra" in esES, "barre" in frFR, "바" in koKR, "панель" in ruRU, "聊天条" in zhCN (the client's "聊天栏" is the chat window). zhCN labels end in the full-width "："; `StripColon` in `EditModeDialog.lua` removes both kinds.
 
 ## Release
 

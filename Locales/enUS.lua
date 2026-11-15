@@ -103,7 +103,6 @@ _G["BINDING_NAME_CHATBAR_CYCLE_NEXT"] = "Cycle to next channel"
 -- Messages
 L["MSG_BAR_SHOWN"] = "Bar shown"
 L["MSG_BAR_HIDDEN"] = "Bar hidden"
-L["MSG_BAR_TOGGLED"] = "Bar"
 L["MSG_RESET"] = "Resetting to defaults..."
 L["MSG_RESET_COMPLETE"] = "Settings reset!"
 L["MSG_STILL_LOADING"] = "Addon is still loading, please try again in a moment."

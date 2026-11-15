@@ -37,8 +37,11 @@ local function Settings()
 end
 
 -- The settings panel's labels end in a colon; Blizzard's Edit Mode labels don't.
+-- zhCN writes the full-width "：" (a 3-byte UTF-8 literal; none of its bytes
+-- are pattern magic characters).
 local function StripColon(text)
-    return (text:gsub("%s*:%s*$", ""))
+    text = text:gsub("%s*:%s*$", "")
+    return (text:gsub("%s*：%s*$", ""))
 end
 
 local function CreateRow(labelText)
