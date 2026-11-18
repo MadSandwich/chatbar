@@ -8,7 +8,7 @@ local ChatBar = {}
 ns.ChatBar = ChatBar
 
 -- Version constant
-ChatBar.VERSION = "3.2.2"
+ChatBar.VERSION = "3.3.0"
 
 -- Maximum number of recently-used channels remembered for history cycling
 ChatBar.MAX_HISTORY = 10
@@ -32,6 +32,7 @@ ns.Defaults = {
     orientation = "horizontal", -- "horizontal" or "vertical"
     barVisible = true,
     lockPosition = false,
+    editModeShown = true, -- Takes part in HUD Edit Mode (the "ChatBar" checkbox under the manager)
     barPosition = nil, -- Saved position {point, relativePoint, x, y}
     fontSize = 12, -- Button text font size
     buttonSize = 20, -- Button size (increased for better texture visibility)
@@ -470,6 +471,7 @@ function ChatBar:OnProfileChanged()
         ns.Config:RefreshPanel(ns.Config.panel)
     end
     ns.EditModeDialog:Refresh()
+    ns.EditMode:Refresh()
 end
 
 -- Repaint the bar from the current theme

@@ -4,7 +4,7 @@ WoW addon: a bar of chat-channel buttons above the chat window. One package and 
 
 ## Environment
 
-- Client: `D:\BattleNet\World of Warcraft\_retail_` (the only flavor installed here). After a patch, read the build from `D:\BattleNet\World of Warcraft\.build.info`; `/bump-up` turns new builds into `## Interface:` entries.
+- Client: `D:\BattleNet\World of Warcraft\_retail_`. WoW: Forever is installed too, at `D:\BattleNet\World of Warcraft\_forever_`; Mechanic isn't loaded there, so check it with screenshots (`_forever_\Screenshots`) and BugGrabber's saved variables. After a patch, read the build from `D:\BattleNet\World of Warcraft\.build.info`; `/bump-up` turns new builds into `## Interface:` entries.
 - `AddOns\ChatBar` is a junction to this repo, so a `/reload` runs the working tree. A `.toc` change or a new file still needs a full client restart.
 - Installed in game: !BugGrabber, BugSack, `!Mechanic` and `Mechanic` (junctions to `D:\Projects\Mechanic`). Account folder: `WTF\Account\417236102#1`.
 - Release packages leave out every dotfile and the files under `ignore` in `.pkgmeta`. Add any new root-level file that isn't addon code to that list, or it ships.
@@ -72,6 +72,8 @@ Rules that aren't obvious from one file:
 The bar joins Edit Mode without being an Edit Mode *system*: systems are saved into server-side layouts and driven by secure code an addon frame can't join without taint.
 
 - The overlay is an `EditModeSystemSelectionTemplate` frame with its `OnMouseDown` / `OnDragStart` / `OnDragStop` replaced (the stock ones only work for registered systems).
+- While Edit Mode is open the bar frame's alpha is 0, so only the overlay's block shows (the template sets `ignoreParentAlpha`). Don't `Hide` the bar instead: the overlay is its child.
+- The "ChatBar" checkbox (profile `editModeShown`) lives in ChatBar's own panel docked under the manager, never inside it: the manager walks `settingsCheckButtons` with `pairs`, so an addon entry there taints Edit Mode. Other addons dock panels the same way (WIM on Forever), so `EditMode.lua` hangs ours off the end of that chain. Unchecked, the bar stays as it is in play, as Blizzard's unchecked frames do.
 - Follow `EditModeManagerFrame`'s `OnShow` / `OnHide`, not the `EditMode.Enter` / `Exit` callbacks: the frame also hides when a panel opens over Edit Mode.
 - `EditModeManagerFrame:ClearSelectedSystem()` is safe from addon code out of combat. Never call `SelectSystem` with the bar.
 - The position is the profile's `barPosition`, saved on drop. Edit Mode ignores `lockPosition` on purpose.
@@ -88,7 +90,8 @@ The bar joins Edit Mode without being an Edit Mode *system*: systems are saved i
 | Classic Era | 11509 | Classic |
 
 - Detect capabilities, never versions: Forever reports 16001, so a build-number check sends a Mainline client down the Classic path. The `ChatFrameUtil` checks with `ChatEdit_*` fallbacks in `ChatBar.lua` are the house pattern.
-- Forever is Mainline: `WOW_PROJECT_ID == WOW_PROJECT_MAINLINE` and the 12.x API.
+- Forever runs Mainline's UI code and the 12.x API, but reports `WOW_PROJECT_ID == WOW_PROJECT_CAMELOT` (18), not `WOW_PROJECT_MAINLINE` (1) (seen in game 2026-11-15). Only Forever defines `WOW_PROJECT_CAMELOT`. Where the family matters, test both, as `EditMode.lua` does. `C_GameRules.IsWoWHack()` is a different game mode and is false on Forever.
+- Forever's own UI source is in the wow MCP cache (`uisource\forever`, synced with `npx -y hated-wow-mcp sync ui-source -- forever`); the MCP tools only see it after a restart, so grep the folder directly until then.
 - Blizzard's chat UI (`Blizzard_ChatFrameBase/Shared/`) is the same on every flavor, so `ChatFrameUtil` and every chat type exist everywhere.
 - `.pkgmeta` must not set `enable-toc-creation`; the single comma-separated `## Interface:` list is the alternative strategy, and mixing them silently produces no per-flavor TOCs.
 

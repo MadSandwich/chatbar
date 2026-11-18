@@ -30,6 +30,10 @@ LE_PARTY_CATEGORY_INSTANCE = 2
 ---@type string
 HUD_EDIT_MODE_RESET_POSITION = "Reset To Default Position"
 
+--- WoW: Forever's project ID
+---@type number?
+WOW_PROJECT_CAMELOT = 18
+
 --- The client's own whisper slash command: "/w" in enUS, "/ш" in ruRU (seen in
 --- game 2026-10-24). It resolves a BattleTag or Battle.net friend to a
 --- Battle.net whisper; Blizzard's chat menu builds its Whisper entry from it.

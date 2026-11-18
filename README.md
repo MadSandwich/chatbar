@@ -47,10 +47,12 @@ Until you move it, the bar sits above your chat window and follows it around.
 
 - **Drag it** anywhere. **Lock bar position** in the settings stops that.
 - **Edit Mode** (Retail and Forever): open Edit Mode from the game menu and the
-  bar is outlined along with the rest of the HUD. Drag it to move it; Edit Mode
-  moves the bar even while it is locked. Click it to open its settings:
-  orientation, text position, button size and font size, plus **Reset To Default
-  Position**, which puts the bar back above the chat window.
+  bar shows as a highlighted block along with the rest of the HUD. Drag it to
+  move it; Edit Mode moves the bar even while it is locked. Click it to open its
+  settings: orientation, text position, button size and font size, plus **Reset
+  To Default Position**, which puts the bar back above the chat window. The
+  **ChatBar** checkbox in the panel under the Edit Mode window takes the bar out
+  of Edit Mode and back in; unchecked, the bar stays as it is in play.
 
 Either way, the position is saved to your ChatBar profile as soon as you drop the
 bar. It is not part of an Edit Mode layout, so switching layouts or reverting

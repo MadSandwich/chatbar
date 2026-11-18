@@ -1,5 +1,18 @@
 # ChatBar Release Notes
 
+## 3.3.0
+
+- **Edit Mode now works on WoW: Forever.** 3.2.0 added it for Retail and
+  Forever, but Forever identifies itself as a project of its own, so the bar
+  never joined Edit Mode there. It does now, with the same dialog as on Retail.
+- **A ChatBar checkbox takes the bar in and out of Edit Mode**, the way the
+  Edit Mode window's own checkboxes do for Blizzard's frames. It sits in a small
+  panel under the Edit Mode window (or above it, when there is no room below),
+  after any panels other addons have docked there. Unchecked, the bar stays as
+  it is in play. The choice is saved to your ChatBar profile.
+- **In Edit Mode the bar shows as a highlighted block** in place of its buttons,
+  as Blizzard's own frames do.
+
 ## 3.2.2
 
 - **Simplified Chinese (zhCN) translation.** The bar, the settings panel, the
